@@ -1,0 +1,141 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:campus_food_app/models/vendor_model.dart';
+import 'package:campus_food_app/providers/vendor_provider.dart';
+import 'package:campus_food_app/screens/student/menu_screen.dart';
+
+class VendorListScreen extends StatefulWidget {
+  const VendorListScreen({Key? key}) : super(key: key);
+
+  @override
+  _VendorListScreenState createState() => _VendorListScreenState();
+}
+
+class _VendorListScreenState extends State<VendorListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Fetch vendors when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<VendorProvider>(context, listen: false).fetchAllVendors();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Campus Food Vendors'),
+        backgroundColor: Colors.deepPurple,
+      ),
+      body: Consumer<VendorProvider>(
+        builder: (context, vendorProvider, child) {
+          if (vendorProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (vendorProvider.vendors.isEmpty) {
+            return const Center(
+              child: Text('No vendors available at the moment'),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: vendorProvider.vendors.length,
+            itemBuilder: (context, index) {
+              final vendor = vendorProvider.vendors[index];
+              return _buildVendorCard(context, vendor);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildVendorCard(BuildContext context, VendorModel vendor) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          // Select vendor and navigate to menu screen
+          Provider.of<VendorProvider>(context, listen: false)
+              .fetchVendorById(vendor.id);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MenuScreen(vendorId: vendor.id),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Vendor image
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  image: DecorationImage(
+                    image: vendor.imageUrl.isNotEmpty
+                        ? NetworkImage(vendor.imageUrl)
+                        : const AssetImage('assets/images/vendor_placeholder.png') as ImageProvider,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Vendor details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      vendor.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      vendor.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.circle,
+                          size: 12,
+                          color: vendor.isOpen ? Colors.green : Colors.red,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          vendor.isOpen ? 'Open' : 'Closed',
+                          style: TextStyle(
+                            color: vendor.isOpen ? Colors.green : Colors.red,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Arrow icon
+              const Icon(Icons.arrow_forward_ios, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

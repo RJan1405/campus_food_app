@@ -1,0 +1,33 @@
+lib/
+├── main.dart
+├── models/
+│   ├── user_model.dart
+│   ├── vendor_model.dart
+│   ├── menu_item_model.dart
+│   ├── order_model.dart
+│   └── wallet_transaction_model.dart
+├── screens/
+│   ├── auth/
+│   │   ├── login_screen.dart
+│   │   └── signup_screen.dart
+│   ├── student/
+│   │   ├── home_screen.dart
+│   │   ├── vendor_list_screen.dart
+│   │   ├── menu_screen.dart
+│   │   ├── cart_screen.dart
+│   │   ├── order_tracking_screen.dart
+│   │   └── wallet_screen.dart
+│   └── vendor/
+│       ├── dashboard_screen.dart
+│       ├── menu_management_screen.dart
+│       ├── discount_management_screen.dart
+│       └── order_management_screen.dart
+├── services/
+│   ├── auth_service.dart (existing)
+│   ├── payment_service.dart (existing)
+│   ├── order_service.dart
+│   └── vendor_service.dart
+└── widgets/
+    ├── common/
+    ├── student/
+    └── vendor/
