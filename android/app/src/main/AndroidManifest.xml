@@ -1,8 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
-        android:label="campus_food_app"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+    <!-- Internet permission for Firebase -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+        <application
+            android:label="campus_food_app"
+            android:name="${applicationName}"
+            android:icon="@mipmap/ic_launcher"
+            android:enableOnBackInvokedCallback="true"
+            android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -30,6 +36,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        
+        <!-- Firebase reCAPTCHA configuration -->
+        <meta-data
+            android:name="firebase_auth_web_api_key"
+            android:value="AIzaSyAqUYAWsKCLqySJidUzTUKViPdVwLtXWkc" />
+        
+        <!-- Disable reCAPTCHA for testing -->
+        <meta-data
+            android:name="firebase_auth_web_recaptcha_site_key"
+            android:value="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

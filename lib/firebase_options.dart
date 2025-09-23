@@ -38,56 +38,56 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBCampusFoodAppWebApiKey',
-    appId: '1:123456789012:web:abc123def456ghi789jkl',
-    messagingSenderId: '123456789012',
-    projectId: 'campus-food-app',
-    authDomain: 'campus-food-app.firebaseapp.com',
-    storageBucket: 'campus-food-app.appspot.com',
+    apiKey: 'AIzaSyAqUYAWsKCLqySJidUzTUKViPdVwLtXWkc',
+    appId: '1:44180746459:web:2f31d5dc18924d26e8dcfe',
+    messagingSenderId: '44180746459',
+    projectId: 'campus-food-app-75fc7',
+    authDomain: 'campus-food-app-75fc7.firebaseapp.com',
+    storageBucket: 'campus-food-app-75fc7.firebasestorage.app',
     measurementId: 'G-MEASUREMENT_ID',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBCampusFoodAppAndroidApiKey',
-    appId: '1:123456789012:android:abc123def456ghi789jkl',
-    messagingSenderId: '123456789012',
-    projectId: 'campus-food-app',
-    storageBucket: 'campus-food-app.appspot.com',
+    apiKey: 'AIzaSyAqUYAWsKCLqySJidUzTUKViPdVwLtXWkc',
+    appId: '1:44180746459:android:2f31d5dc18924d26e8dcfe',
+    messagingSenderId: '44180746459',
+    projectId: 'campus-food-app-75fc7',
+    storageBucket: 'campus-food-app-75fc7.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBCampusFoodAppIosApiKey',
-    appId: '1:123456789012:ios:abc123def456ghi789jkl',
-    messagingSenderId: '123456789012',
-    projectId: 'campus-food-app',
-    storageBucket: 'campus-food-app.appspot.com',
-    iosClientId: 'com.googleusercontent.apps.123456789012-iosappid',
-    iosBundleId: 'com.example.campusFoodApp',
+    apiKey: 'AIzaSyAqUYAWsKCLqySJidUzTUKViPdVwLtXWkc',
+    appId: '1:44180746459:ios:2f31d5dc18924d26e8dcfe',
+    messagingSenderId: '44180746459',
+    projectId: 'campus-food-app-75fc7',
+    storageBucket: 'campus-food-app-75fc7.firebasestorage.app',
+    iosClientId: '44180746459-kn75ukuldtgldk7lrnc99i3ais4f2u1e.apps.googleusercontent.com',
+    iosBundleId: 'com.example.campus_food_app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBCampusFoodAppMacosApiKey',
-    appId: '1:123456789012:macos:abc123def456ghi789jkl',
-    messagingSenderId: '123456789012',
-    projectId: 'campus-food-app',
-    storageBucket: 'campus-food-app.appspot.com',
-    iosClientId: 'com.googleusercontent.apps.123456789012-macosappid',
-    iosBundleId: 'com.example.campusFoodApp',
+    apiKey: 'AIzaSyAqUYAWsKCLqySJidUzTUKViPdVwLtXWkc',
+    appId: '1:44180746459:macos:2f31d5dc18924d26e8dcfe',
+    messagingSenderId: '44180746459',
+    projectId: 'campus-food-app-75fc7',
+    storageBucket: 'campus-food-app-75fc7.firebasestorage.app',
+    iosClientId: '44180746459-kn75ukuldtgldk7lrnc99i3ais4f2u1e.apps.googleusercontent.com',
+    iosBundleId: 'com.example.campus_food_app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBCampusFoodAppWindowsApiKey',
-    appId: '1:123456789012:windows:abc123def456ghi789jkl',
-    messagingSenderId: '123456789012',
-    projectId: 'campus-food-app',
-    storageBucket: 'campus-food-app.appspot.com',
+    apiKey: 'AIzaSyAqUYAWsKCLqySJidUzTUKViPdVwLtXWkc',
+    appId: '1:44180746459:windows:2f31d5dc18924d26e8dcfe',
+    messagingSenderId: '44180746459',
+    projectId: 'campus-food-app-75fc7',
+    storageBucket: 'campus-food-app-75fc7.firebasestorage.app',
   );
 
   static const FirebaseOptions linux = FirebaseOptions(
-    apiKey: 'AIzaSyBCampusFoodAppLinuxApiKey',
-    appId: '1:123456789012:linux:abc123def456ghi789jkl',
-    messagingSenderId: '123456789012',
-    projectId: 'campus-food-app',
-    storageBucket: 'campus-food-app.appspot.com',
+    apiKey: 'AIzaSyAqUYAWsKCLqySJidUzTUKViPdVwLtXWkc',
+    appId: '1:44180746459:linux:2f31d5dc18924d26e8dcfe',
+    messagingSenderId: '44180746459',
+    projectId: 'campus-food-app-75fc7',
+    storageBucket: 'campus-food-app-75fc7.firebasestorage.app',
   );
 }

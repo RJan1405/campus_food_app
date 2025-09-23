@@ -80,8 +80,8 @@ class _VendorListScreenState extends State<VendorListScreen> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   image: DecorationImage(
-                    image: vendor.imageUrl.isNotEmpty
-                        ? NetworkImage(vendor.imageUrl)
+                    image: vendor.imageUrl?.isNotEmpty == true
+                        ? NetworkImage(vendor.imageUrl!)
                         : const AssetImage('assets/images/vendor_placeholder.png') as ImageProvider,
                     fit: BoxFit.cover,
                   ),

@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 import '../models/vendor_model.dart';
 
 class AdminService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
   // Collection references
   final CollectionReference _adminsCollection = 

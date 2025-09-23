@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:campus_food_app/services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -55,29 +56,48 @@ class _SignupScreenState extends State<SignupScreen> {
         );
 
         if (user != null) {
-          // Store additional user data in Firestore
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+          print('Signup successful for user: ${user.uid}, role: $_selectedRole');
+          // Store additional user data in Firestore using set with merge to ensure document exists
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'email': _emailController.text.trim(),
+            'role': _selectedRole,
             'name': _nameController.text.trim(),
             'phone': _phoneController.text.trim(),
             'campus_id': _campusIdController.text.trim(),
+            'wallet_balance': 0.0,
+            'created_at': FieldValue.serverTimestamp(),
+            'updated_at': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          print('User document created/updated successfully with role: $_selectedRole');
+
+          // Clear any previous error messages
+          setState(() {
+            _errorMessage = null;
           });
 
-          // Navigate based on role
-          if (_selectedRole == 'vendor') {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const DashboardScreen()),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const HomeScreen()),
-            );
-          }
+          // Show success message and let AuthWrapper handle navigation
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Account created successfully! Redirecting...'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Don't navigate away - let AuthWrapper handle the navigation based on role
+          // The AuthWrapper will detect the new user and redirect appropriately
+        } else {
+          setState(() {
+            _errorMessage = 'Sign up failed. Please try again.';
+          });
         }
       } catch (e) {
         setState(() {
-          _errorMessage = e.toString();
+          // Extract clean error message
+          String errorMsg = e.toString();
+          if (errorMsg.startsWith('Exception: ')) {
+            errorMsg = errorMsg.substring(11); // Remove "Exception: " prefix
+          }
+          _errorMessage = errorMsg;
         });
       } finally {
         setState(() {
@@ -136,8 +156,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                    if (!value.contains('@') || !value.contains('.')) {
+                      return 'Please enter a valid email address';
                     }
                     return null;
                   },
@@ -257,6 +277,13 @@ class _SignupScreenState extends State<SignupScreen> {
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('Sign Up', style: TextStyle(fontSize: 16)),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Already have an account? Sign In'),
                 ),
               ],
             ),

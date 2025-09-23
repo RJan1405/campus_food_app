@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';  // Temporarily disabled
 import '../models/notification_model.dart';
+import '../models/order_model.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -10,28 +11,28 @@ class NotificationService {
   final CollectionReference _notificationsCollection = 
       FirebaseFirestore.instance.collection('notifications');
   
-  // Flutter Local Notifications Plugin
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = 
-      FlutterLocalNotificationsPlugin();
+  // Flutter Local Notifications Plugin - Temporarily disabled
+  // final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = 
+  //     FlutterLocalNotificationsPlugin();
   
   // Initialize notification service
   Future<void> initialize() async {
     try {
-      // Initialize Flutter Local Notifications
-      const AndroidInitializationSettings initializationSettingsAndroid = 
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+      // Initialize Flutter Local Notifications - Temporarily disabled
+      // const AndroidInitializationSettings initializationSettingsAndroid = 
+      //     AndroidInitializationSettings('@mipmap/ic_launcher');
       
-      const DarwinInitializationSettings initializationSettingsIOS = 
-          DarwinInitializationSettings();
+      // const DarwinInitializationSettings initializationSettingsIOS = 
+      //     DarwinInitializationSettings();
       
-      const InitializationSettings initializationSettings = InitializationSettings(
-        android: initializationSettingsAndroid,
-        iOS: initializationSettingsIOS,
-      );
+      // const InitializationSettings initializationSettings = InitializationSettings(
+      //   android: initializationSettingsAndroid,
+      //   iOS: initializationSettingsIOS,
+      // );
       
-      await _flutterLocalNotificationsPlugin.initialize(
-        initializationSettings,
-      );
+      // await _flutterLocalNotificationsPlugin.initialize(
+      //   initializationSettings,
+      // );
     } catch (e) {
       if (kDebugMode) {
         print('Error initializing notification service: $e');
@@ -76,31 +77,31 @@ class NotificationService {
     }
   }
   
-  // Show local notification
+  // Show local notification - Temporarily disabled
   Future<void> _showLocalNotification(String title, String body) async {
     try {
-      const AndroidNotificationDetails androidPlatformChannelSpecifics =
-          AndroidNotificationDetails(
-        'campus_food_app_channel',
-        'Campus Food App Notifications',
-        importance: Importance.max,
-        priority: Priority.high,
-      );
+      // const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      //     AndroidNotificationDetails(
+      //   'campus_food_app_channel',
+      //   'Campus Food App Notifications',
+      //   importance: Importance.max,
+      //   priority: Priority.high,
+      // );
       
-      const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-          DarwinNotificationDetails();
+      // const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+      //     DarwinNotificationDetails();
       
-      const NotificationDetails platformChannelSpecifics = NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-        iOS: iOSPlatformChannelSpecifics,
-      );
+      // const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      //   android: androidPlatformChannelSpecifics,
+      //   iOS: iOSPlatformChannelSpecifics,
+      // );
       
-      await _flutterLocalNotificationsPlugin.show(
-        0,
-        title,
-        body,
-        platformChannelSpecifics,
-      );
+      // await _flutterLocalNotificationsPlugin.show(
+      //   0,
+      //   title,
+      //   body,
+      //   platformChannelSpecifics,
+      // );
     } catch (e) {
       if (kDebugMode) {
         print('Error showing local notification: $e');

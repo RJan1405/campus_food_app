@@ -104,9 +104,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
       color: notification.isRead ? null : Colors.blue.shade50,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: _getNotificationColor(notification.type),
+          backgroundColor: _getNotificationColor(notification.type.toString().split('.').last),
           child: Icon(
-            _getNotificationIcon(notification.type),
+            _getNotificationIcon(notification.type.toString().split('.').last),
             color: Colors.white,
           ),
         ),

@@ -63,7 +63,7 @@ class PromotionModel {
       minimumOrderValue: data['minimum_order_value'] != null 
           ? (data['minimum_order_value'] as num).toDouble() 
           : null,
-      usageLimit: data['usage_limit'],
+      usageLimit: data['usage_limit'] != null ? data['usage_limit'] as int : null,
       usageCount: data['usage_count'] ?? 0,
       isActive: data['is_active'] ?? false,
       imageUrl: data['image_url'],
@@ -93,7 +93,7 @@ class PromotionModel {
   bool isValidNow() {
     final now = DateTime.now();
     return isActive && now.isAfter(startDate) && now.isBefore(endDate) && 
-           (usageLimit == null || usageCount < usageLimit);
+           (usageLimit == null || usageCount < usageLimit!);
   }
   
   // Check if promotion can be applied to a specific menu item
@@ -126,8 +126,17 @@ class PromotionModel {
       minimumOrderValue: minimumOrderValue,
       usageLimit: usageLimit,
       usageCount: usageCount + 1,
-      isActive: isActive && (usageLimit == null || usageCount + 1 < usageLimit),
+      isActive: isActive && (usageLimit == null || (usageCount + 1) < usageLimit!),
       imageUrl: imageUrl,
     );
   }
+
+  // Getter for discount type (alias for type)
+  PromotionType get discountType => type;
+
+  // Getter for discount value (alias for value)
+  double get discountValue => value;
+
+  // Getter for maximum discount (alias for minimumOrderValue)
+  double? get maximumDiscount => minimumOrderValue;
 }

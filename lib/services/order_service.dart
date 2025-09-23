@@ -2,19 +2,62 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/order_model.dart';
 import '../models/cart_model.dart';
-import '../models/wallet_transaction_model.dart';
 import 'wallet_service.dart';
 
 class OrderService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final WalletService _walletService = WalletService();
   
   // Collection references
   final CollectionReference _ordersCollection = 
       FirebaseFirestore.instance.collection('orders');
   
+  // Create a new order with individual parameters
+  Future<OrderModel?> placeOrder({
+    required String userId,
+    required String vendorId,
+    required String vendorName,
+    required List<OrderItemModel> items,
+    required double totalAmount,
+    required double discountedAmount,
+    required double walletSavings,
+    String? note,
+    DateTime? pickupTime,
+    String? promotionId,
+  }) async {
+    try {
+      // Create new order
+      final newOrder = {
+        'user_id': userId,
+        'vendor_id': vendorId,
+        'vendor_name': vendorName,
+        'items': items.map((item) => item.toMap()).toList(),
+        'total_amount': totalAmount,
+        'discounted_amount': discountedAmount,
+        'wallet_savings': walletSavings,
+        'status': OrderStatus.placed.toString().split('.').last,
+        'order_time': FieldValue.serverTimestamp(),
+        'pickup_time': pickupTime != null ? Timestamp.fromDate(pickupTime) : null,
+        'note': note,
+        'promotion_id': promotionId,
+      };
+      
+      // Add order to Firestore
+      DocumentReference orderRef = await _ordersCollection.add(newOrder);
+      
+      // Get the created order
+      DocumentSnapshot orderDoc = await orderRef.get();
+      return OrderModel.fromFirestore(orderDoc);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error placing order: $e');
+      }
+      return null;
+    }
+  }
+
   // Create a new order from cart
-  Future<String> placeOrder({
+  Future<String> placeOrderFromCart({
     required CartModel cart,
     required String userId,
     required String pickupSlotId,
@@ -167,7 +210,7 @@ class OrderService {
   }
   
   // Cancel order
-  Future<void> cancelOrder(String orderId) async {
+  Future<bool> cancelOrder(String orderId) async {
     try {
       // Get the order first to check if it can be cancelled
       DocumentSnapshot orderDoc = await _ordersCollection.doc(orderId).get();
@@ -200,11 +243,13 @@ class OrderService {
         amount: total,
         orderId: orderId,
       );
+      
+      return true;
     } catch (e) {
       if (kDebugMode) {
         print('Error cancelling order: $e');
       }
-      throw Exception('Failed to cancel order: $e');
+      return false;
     }
   }
   

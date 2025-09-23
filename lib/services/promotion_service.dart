@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/promotion_model.dart';
 
 class PromotionService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
   // Collection references
   final CollectionReference _promotionsCollection = 
@@ -228,13 +228,13 @@ class PromotionService {
       }
       
       // Check minimum order value
-      if (orderTotal < promotion.minimumOrderValue) {
+      if (promotion.minimumOrderValue != null && orderTotal < promotion.minimumOrderValue!) {
         return 0.0;
       }
       
       // Calculate discount
       double discount = 0.0;
-      if (promotion.discountType == DiscountType.percentage) {
+      if (promotion.discountType == PromotionType.percentageDiscount) {
         discount = orderTotal * (promotion.discountValue / 100);
         // Cap at maximum discount if specified
         if (promotion.maximumDiscount != null && discount > promotion.maximumDiscount!) {

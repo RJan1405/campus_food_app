@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:campus_food_app/services/admin_service.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);

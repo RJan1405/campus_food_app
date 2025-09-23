@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:campus_food_app/screens/auth/signup_screen.dart';
 import 'package:campus_food_app/services/auth_service.dart';
 
@@ -28,10 +26,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signIn() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = null;
+        });
+      }
 
       try {
         final user = await _authService.signIn(
@@ -40,40 +40,162 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         if (user != null) {
-          // Get user role from Firestore
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-
-          if (userDoc.exists) {
-            final userData = userDoc.data();
-            final role = userData?['role'];
-
-            // Navigate based on role
-            if (role == 'vendor') {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const DashboardScreen()),
-              );
-            } else {
-              // Default to student/staff home
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
-              );
-            }
+          // Authentication successful - let AuthWrapper handle navigation
+          // This will automatically detect the user and navigate to the appropriate screen
+          print('Login successful for user: ${user.uid}');
+          // Clear any previous error messages
+          if (mounted) {
+            setState(() {
+              _errorMessage = null;
+            });
           }
         } else {
-          setState(() {
-            _errorMessage = 'Invalid email or password';
-          });
+          if (mounted) {
+            setState(() {
+              _errorMessage = 'Login failed. Please try again.';
+            });
+          }
         }
       } catch (e) {
-        setState(() {
-          _errorMessage = e.toString();
-        });
+        if (mounted) {
+          setState(() {
+            // Extract clean error message
+            String errorMsg = e.toString();
+            if (errorMsg.startsWith('Exception: ')) {
+              errorMsg = errorMsg.substring(11); // Remove "Exception: " prefix
+            }
+            _errorMessage = errorMsg;
+          });
+        }
       } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _createTestAccount() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final user = await _authService.createTestAccount();
+      if (user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Test account created! Email: test@campusfood.com, Password: test123456'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Auto-fill the form
+        _emailController.text = 'test@campusfood.com';
+        _passwordController.text = 'test123456';
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Test account already exists or creation failed'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        // Auto-fill the form anyway
+        _emailController.text = 'test@campusfood.com';
+        _passwordController.text = 'test123456';
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error creating test account: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _createTestVendorAccount() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final user = await _authService.createTestVendorAccount();
+      if (user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Test vendor account created! Email: vendor@campusfood.com, Password: vendor123456'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Auto-fill the form
+        _emailController.text = 'vendor@campusfood.com';
+        _passwordController.text = 'vendor123456';
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Test vendor account already exists or creation failed'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        // Auto-fill the form anyway
+        _emailController.text = 'vendor@campusfood.com';
+        _passwordController.text = 'vendor123456';
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error creating test vendor account: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _clearAuthState() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      await _authService.clearAuthState();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Auth state cleared successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error clearing auth state: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
@@ -120,6 +242,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
+                    }
+                    if (!value.contains('@') || !value.contains('.')) {
+                      return 'Please enter a valid email address';
                     }
                     return null;
                   },
@@ -172,6 +297,33 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   child: const Text('Don\'t have an account? Sign Up'),
                 ),
+                const SizedBox(height: 16),
+                // Debug button to create test account
+                TextButton(
+                  onPressed: _isLoading ? null : _createTestAccount,
+                  child: const Text(
+                    'Create Test Account (Debug)',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                  // Debug button to create test vendor account
+                  TextButton(
+                    onPressed: _isLoading ? null : _createTestVendorAccount,
+                    child: const Text(
+                      'Create Test Vendor Account (Debug)',
+                      style: TextStyle(fontSize: 12, color: Colors.orange),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Debug button to clear auth state
+                  TextButton(
+                    onPressed: _isLoading ? null : _clearAuthState,
+                    child: const Text(
+                      'Clear Auth State (Debug)',
+                      style: TextStyle(fontSize: 12, color: Colors.red),
+                    ),
+                  ),
               ],
             ),
           ),

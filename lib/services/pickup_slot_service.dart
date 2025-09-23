@@ -108,7 +108,7 @@ class PickupSlotService {
   }
   
   // Add an order to a pickup slot
-  Future<void> addOrderToSlot(String slotId) async {
+  Future<void> addOrderToSlot(String slotId, String orderId) async {
     try {
       // Get current slot
       DocumentSnapshot doc = await _pickupSlotsCollection.doc(slotId).get();
@@ -125,7 +125,7 @@ class PickupSlotService {
       }
       
       // Update slot with new order
-      PickupSlotModel updatedSlot = slot.addOrder();
+      PickupSlotModel updatedSlot = slot.addOrder(orderId);
       await updatePickupSlot(updatedSlot);
     } catch (e) {
       if (kDebugMode) {
@@ -136,7 +136,7 @@ class PickupSlotService {
   }
   
   // Remove an order from a pickup slot
-  Future<void> removeOrderFromSlot(String slotId) async {
+  Future<void> removeOrderFromSlot(String slotId, String orderId) async {
     try {
       // Get current slot
       DocumentSnapshot doc = await _pickupSlotsCollection.doc(slotId).get();
@@ -148,7 +148,7 @@ class PickupSlotService {
       PickupSlotModel slot = PickupSlotModel.fromFirestore(doc);
       
       // Update slot with removed order
-      PickupSlotModel updatedSlot = slot.removeOrder();
+      PickupSlotModel updatedSlot = slot.removeOrder(orderId);
       await updatePickupSlot(updatedSlot);
     } catch (e) {
       if (kDebugMode) {
@@ -278,8 +278,8 @@ class PickupSlotService {
               startTime: startTime,
               endTime: endTime,
               capacity: 5, // Default capacity
-              currentOrders: 0,
-              isAvailable: true,
+              currentOrders: [],
+              isActive: true,
             );
             
             String slotId = await createPickupSlot(slot);

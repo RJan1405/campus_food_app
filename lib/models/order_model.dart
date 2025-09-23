@@ -59,6 +59,7 @@ class OrderModel {
   final DateTime orderTime;
   final DateTime? pickupTime;
   final String? note;
+  final String? promotionId;
   
   OrderModel({
     required this.id,
@@ -73,6 +74,7 @@ class OrderModel {
     required this.orderTime,
     this.pickupTime,
     this.note,
+    this.promotionId,
   });
   
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
@@ -103,6 +105,7 @@ class OrderModel {
           ? (data['pickup_time'] as Timestamp).toDate() 
           : null,
       note: data['note'],
+      promotionId: data['promotion_id'],
     );
   }
   
@@ -119,6 +122,13 @@ class OrderModel {
       'order_time': Timestamp.fromDate(orderTime),
       'pickup_time': pickupTime != null ? Timestamp.fromDate(pickupTime!) : null,
       'note': note,
+      'promotion_id': promotionId,
     };
   }
+
+  // Getter for createdAt (alias for orderTime)
+  DateTime get createdAt => orderTime;
+
+  // Getter for total (alias for totalAmount)
+  double get total => totalAmount;
 }

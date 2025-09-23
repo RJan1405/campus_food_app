@@ -17,6 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = true;
   double _walletBalance = 0.0;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -53,14 +54,26 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Student/Staff Home'),
+        title: const Text('Campus Food App'),
         backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              await authService.signOut();
-              Navigator.pushReplacementNamed(context, '/');
+              try {
+                await authService.signOut();
+                // Navigation will be handled by AuthWrapper
+                if (mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                }
+              } catch (e) {
+                print('Error signing out: $e');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error signing out: $e')),
+                  );
+                }
+              }
             },
           ),
         ],
@@ -185,6 +198,50 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          
+          switch (index) {
+            case 0:
+              // Home - already here
+              break;
+            case 1:
+              Navigator.pushNamed(context, '/student/orders');
+              break;
+            case 2:
+              Navigator.pushNamed(context, '/student/notifications');
+              break;
+            case 3:
+              Navigator.pushNamed(context, '/student/profile');
+              break;
+          }
+        },
+        selectedItemColor: Colors.deepPurple,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Orders',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications),
+            label: 'Notifications',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
     );
   }
 

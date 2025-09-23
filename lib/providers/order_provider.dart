@@ -76,10 +76,8 @@ class OrderProvider with ChangeNotifier {
         final index = _orders.indexWhere((order) => order.id == orderId);
         if (index != -1) {
           final updatedOrder = await _orderService.getOrderById(orderId);
-          if (updatedOrder != null) {
-            _orders[index] = updatedOrder;
-            notifyListeners();
-          }
+          _orders[index] = updatedOrder;
+          notifyListeners();
         }
       }
       

@@ -265,8 +265,8 @@ class _PickupSlotManagementScreenState extends State<PickupSlotManagementScreen>
   }
 
   void _showAddSlotDialog(String vendorId) {
-    final startTimeController = TextEditingController();
-    final endTimeController = TextEditingController();
+    // final startTimeController = TextEditingController();
+    // final endTimeController = TextEditingController();
     final capacityController = TextEditingController(text: '10');
     DateTime? selectedDate;
     TimeOfDay? selectedStartTime;
@@ -423,7 +423,7 @@ class _PickupSlotManagementScreenState extends State<PickupSlotManagementScreen>
         endTime: endTime,
         capacity: capacity,
         currentOrders: [],
-        isAvailable: true,
+        isActive: true,
       );
       
       await _pickupSlotService.createPickupSlot(slot);
@@ -495,7 +495,7 @@ class _PickupSlotManagementScreenState extends State<PickupSlotManagementScreen>
               _updatePickupSlot(
                 slot.copyWith(
                   capacity: capacity,
-                  isAvailable: isAvailable,
+                  isActive: isAvailable,
                 ),
               );
               

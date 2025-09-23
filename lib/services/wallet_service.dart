@@ -122,6 +122,66 @@ class WalletService {
     }
   }
   
+  // Process payment from wallet
+  Future<bool> processPayment({
+    required String userId,
+    required double amount,
+    required String orderId,
+  }) async {
+    try {
+      final currentBalance = await getWalletBalance();
+      if (currentBalance < amount) {
+        return false; // Insufficient balance
+      }
+      
+      final newBalance = currentBalance - amount;
+      final success = await updateWalletBalance(newBalance);
+      
+      if (success) {
+        // Record the transaction
+        await recordTransaction(
+          amount: -amount, // Negative for debit
+          type: TransactionType.purchase,
+          orderId: orderId,
+          paymentMethod: 'Wallet',
+        );
+      }
+      
+      return success;
+    } catch (e) {
+      print('Error processing payment: $e');
+      return false;
+    }
+  }
+
+  // Process refund to wallet
+  Future<bool> processRefund({
+    required String userId,
+    required double amount,
+    required String orderId,
+  }) async {
+    try {
+      final currentBalance = await getWalletBalance();
+      final newBalance = currentBalance + amount;
+      final success = await updateWalletBalance(newBalance);
+      
+      if (success) {
+        // Record the transaction
+        await recordTransaction(
+          amount: amount,
+          type: TransactionType.refund,
+          orderId: orderId,
+          paymentMethod: 'Wallet',
+        );
+      }
+      
+      return success;
+    } catch (e) {
+      print('Error processing refund: $e');
+      return false;
+    }
+  }
+
   // Dispose payment service
   void dispose() {
     _paymentService.dispose();

@@ -111,14 +111,14 @@ class _MenuScreenState extends State<MenuScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Menu item image
-            if (menuItem.imageUrl.isNotEmpty)
+            if (menuItem.imageUrl?.isNotEmpty == true)
               Container(
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   image: DecorationImage(
-                    image: NetworkImage(menuItem.imageUrl),
+                    image: NetworkImage(menuItem.imageUrl!),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -195,15 +195,7 @@ class _MenuScreenState extends State<MenuScreen> {
                             ? () {
                                 // Add to cart
                                 final cartProvider = Provider.of<CartProvider>(context, listen: false);
-                                cartProvider.addToCart(
-                                  menuItem.id,
-                                  menuItem.vendorId,
-                                  menuItem.name,
-                                  menuItem.price,
-                                  menuItem.walletDiscount,
-                                  menuItem.isDiscountPercentage,
-                                  menuItem.imageUrl,
-                                );
+                                cartProvider.addToCart(menuItem, 1);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Added to cart'),

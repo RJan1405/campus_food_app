@@ -159,7 +159,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final userStats = _dashboardStats['users'] ?? {};
     final orderStats = _dashboardStats['orders'] ?? {};
     final vendorStats = _dashboardStats['vendors'] ?? {};
-    final transactionStats = _dashboardStats['transactions'] ?? {};
+    // final transactionStats = _dashboardStats['transactions'] ?? {};
 
     return Column(
       children: [

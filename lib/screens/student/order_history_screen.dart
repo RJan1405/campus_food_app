@@ -101,7 +101,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                     fontSize: 16,
                   ),
                 ),
-                _buildStatusChip(order.status),
+                _buildStatusChip(order.status.toString().split('.').last),
               ],
             ),
             const SizedBox(height: 8),

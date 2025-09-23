@@ -98,8 +98,6 @@ class CartProvider with ChangeNotifier {
     try {
       final discount = await _promotionService.calculatePromotionDiscount(
         promotionId, 
-        _cart!.vendorId, 
-        _cart!.items.map((item) => item.menuItemId).toList(), 
         _cart!.total
       );
       
@@ -115,5 +113,10 @@ class CartProvider with ChangeNotifier {
     _appliedPromotionId = null;
     _promotionDiscount = 0.0;
     notifyListeners();
+  }
+
+  // Add to cart method (alias for addItem)
+  void addToCart(MenuItemModel menuItem, int quantity) {
+    addItem(menuItem, quantity);
   }
 }
