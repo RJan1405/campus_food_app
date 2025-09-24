@@ -66,16 +66,14 @@ class CartItemModel {
 
 class CartModel {
   final String userId;
-  final String vendorId; // Single vendor per cart
-  final List<CartItemModel> items;
+  final Map<String, List<CartItemModel>> vendorItems; // Multiple vendors supported
   final double subtotal;
   final double discount;
   final double total;
   
   CartModel({
     required this.userId,
-    required this.vendorId,
-    required this.items,
+    required this.vendorItems,
     required this.subtotal,
     required this.discount,
     required this.total,
@@ -84,8 +82,7 @@ class CartModel {
   factory CartModel.empty(String userId) {
     return CartModel(
       userId: userId,
-      vendorId: '',
-      items: [],
+      vendorItems: {},
       subtotal: 0.0,
       discount: 0.0,
       total: 0.0,
@@ -94,18 +91,22 @@ class CartModel {
   
   factory CartModel.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map<String, dynamic>;
-    List<CartItemModel> items = [];
+    Map<String, List<CartItemModel>> vendorItems = {};
     
-    if (data['items'] != null) {
-      items = (data['items'] as List).map((item) => 
-        CartItemModel.fromMap(item as Map<String, dynamic>)
-      ).toList();
+    if (data['vendor_items'] != null) {
+      Map<String, dynamic> vendorItemsData = data['vendor_items'] as Map<String, dynamic>;
+      vendorItemsData.forEach((vendorId, itemsList) {
+        if (itemsList is List) {
+          vendorItems[vendorId] = itemsList.map((item) => 
+            CartItemModel.fromMap(item as Map<String, dynamic>)
+          ).toList();
+        }
+      });
     }
     
     return CartModel(
       userId: data['user_id'] ?? '',
-      vendorId: data['vendor_id'] ?? '',
-      items: items,
+      vendorItems: vendorItems,
       subtotal: (data['subtotal'] ?? 0.0).toDouble(),
       discount: (data['discount'] ?? 0.0).toDouble(),
       total: (data['total'] ?? 0.0).toDouble(),
@@ -113,10 +114,14 @@ class CartModel {
   }
   
   Map<String, dynamic> toMap() {
+    Map<String, dynamic> vendorItemsMap = {};
+    vendorItems.forEach((vendorId, items) {
+      vendorItemsMap[vendorId] = items.map((item) => item.toMap()).toList();
+    });
+    
     return {
       'user_id': userId,
-      'vendor_id': vendorId,
-      'items': items.map((item) => item.toMap()).toList(),
+      'vendor_items': vendorItemsMap,
       'subtotal': subtotal,
       'discount': discount,
       'total': total,
@@ -124,23 +129,39 @@ class CartModel {
   }
   
   // Helper methods
-  bool get isEmpty => items.isEmpty;
-  int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
+  bool get isEmpty => vendorItems.isEmpty;
+  int get itemCount => vendorItems.values
+      .expand((items) => items)
+      .fold(0, (sum, item) => sum + item.quantity);
+  
+  // Get all items from all vendors
+  List<CartItemModel> get allItems => vendorItems.values
+      .expand((items) => items)
+      .toList();
+  
+  // Get items for a specific vendor
+  List<CartItemModel> getItemsForVendor(String vendorId) {
+    return vendorItems[vendorId] ?? [];
+  }
+  
+  // Get all vendor IDs
+  List<String> get vendorIds => vendorItems.keys.toList();
   
   // Calculate totals based on current items
   CartModel recalculate() {
     double newSubtotal = 0.0;
     double newDiscount = 0.0;
     
-    for (var item in items) {
-      newSubtotal += item.price * item.quantity;
-      newDiscount += (item.price - item.discountedPrice) * item.quantity;
+    for (var items in vendorItems.values) {
+      for (var item in items) {
+        newSubtotal += item.price * item.quantity;
+        newDiscount += (item.price - item.discountedPrice) * item.quantity;
+      }
     }
     
     return CartModel(
       userId: userId,
-      vendorId: vendorId,
-      items: items,
+      vendorItems: vendorItems,
       subtotal: newSubtotal,
       discount: newDiscount,
       total: newSubtotal - newDiscount,
@@ -149,38 +170,31 @@ class CartModel {
   
   // Add item to cart
   CartModel addItem(CartItemModel newItem) {
-    // Check if adding from a different vendor
-    if (vendorId.isNotEmpty && vendorId != newItem.vendorId) {
-      // Replace cart with new vendor
-      return CartModel(
-        userId: userId,
-        vendorId: newItem.vendorId,
-        items: [newItem],
-        subtotal: newItem.price * newItem.quantity,
-        discount: (newItem.price - newItem.discountedPrice) * newItem.quantity,
-        total: newItem.discountedPrice * newItem.quantity,
-      );
-    }
+    Map<String, List<CartItemModel>> updatedVendorItems = Map.from(vendorItems);
     
-    // Check if item already exists
-    int existingIndex = items.indexWhere((item) => item.menuItemId == newItem.menuItemId);
-    List<CartItemModel> updatedItems = List.from(items);
+    // Get or create the list for this vendor
+    List<CartItemModel> vendorItemsList = updatedVendorItems[newItem.vendorId] ?? [];
+    
+    // Check if item already exists in this vendor's items
+    int existingIndex = vendorItemsList.indexWhere((item) => item.menuItemId == newItem.menuItemId);
     
     if (existingIndex >= 0) {
       // Update existing item quantity
-      CartItemModel existingItem = items[existingIndex];
-      updatedItems[existingIndex] = existingItem.copyWith(
+      CartItemModel existingItem = vendorItemsList[existingIndex];
+      vendorItemsList[existingIndex] = existingItem.copyWith(
         quantity: existingItem.quantity + newItem.quantity
       );
     } else {
       // Add new item
-      updatedItems.add(newItem);
+      vendorItemsList.add(newItem);
     }
+    
+    // Update the vendor items map
+    updatedVendorItems[newItem.vendorId] = vendorItemsList;
     
     return CartModel(
       userId: userId,
-      vendorId: newItem.vendorId,
-      items: updatedItems,
+      vendorItems: updatedVendorItems,
       subtotal: 0.0,
       discount: 0.0,
       total: 0.0,
@@ -189,12 +203,18 @@ class CartModel {
   
   // Remove item from cart
   CartModel removeItem(String menuItemId) {
-    List<CartItemModel> updatedItems = items.where((item) => item.menuItemId != menuItemId).toList();
+    Map<String, List<CartItemModel>> updatedVendorItems = {};
+    
+    vendorItems.forEach((vendorId, items) {
+      List<CartItemModel> filteredItems = items.where((item) => item.menuItemId != menuItemId).toList();
+      if (filteredItems.isNotEmpty) {
+        updatedVendorItems[vendorId] = filteredItems;
+      }
+    });
     
     return CartModel(
       userId: userId,
-      vendorId: updatedItems.isEmpty ? '' : vendorId,
-      items: updatedItems,
+      vendorItems: updatedVendorItems,
       subtotal: 0.0,
       discount: 0.0,
       total: 0.0,
@@ -203,21 +223,28 @@ class CartModel {
   
   // Update item quantity
   CartModel updateItemQuantity(String menuItemId, int quantity) {
-    List<CartItemModel> updatedItems = List.from(items);
-    int itemIndex = items.indexWhere((item) => item.menuItemId == menuItemId);
+    Map<String, List<CartItemModel>> updatedVendorItems = {};
     
-    if (itemIndex >= 0) {
-      if (quantity <= 0) {
-        updatedItems.removeAt(itemIndex);
-      } else {
-        updatedItems[itemIndex] = items[itemIndex].copyWith(quantity: quantity);
+    vendorItems.forEach((vendorId, items) {
+      List<CartItemModel> updatedItems = List.from(items);
+      int itemIndex = items.indexWhere((item) => item.menuItemId == menuItemId);
+      
+      if (itemIndex >= 0) {
+        if (quantity <= 0) {
+          updatedItems.removeAt(itemIndex);
+        } else {
+          updatedItems[itemIndex] = items[itemIndex].copyWith(quantity: quantity);
+        }
       }
-    }
+      
+      if (updatedItems.isNotEmpty) {
+        updatedVendorItems[vendorId] = updatedItems;
+      }
+    });
     
     return CartModel(
       userId: userId,
-      vendorId: updatedItems.isEmpty ? '' : vendorId,
-      items: updatedItems,
+      vendorItems: updatedVendorItems,
       subtotal: 0.0,
       discount: 0.0,
       total: 0.0,

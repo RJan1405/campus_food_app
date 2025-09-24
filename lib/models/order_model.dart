@@ -60,6 +60,13 @@ class OrderModel {
   final DateTime? pickupTime;
   final String? note;
   final String? promotionId;
+  final String? rejectionReason;
+  final DateTime? acceptedTime;
+  final DateTime? preparingTime;
+  final DateTime? readyTime;
+  final String? pickupLocation;
+  final String? estimatedReadyTime;
+  final String? cancellationRequestStatus; // 'pending', 'approved', 'rejected', null
   
   OrderModel({
     required this.id,
@@ -75,6 +82,13 @@ class OrderModel {
     this.pickupTime,
     this.note,
     this.promotionId,
+    this.rejectionReason,
+    this.acceptedTime,
+    this.preparingTime,
+    this.readyTime,
+    this.pickupLocation,
+    this.estimatedReadyTime,
+    this.cancellationRequestStatus,
   });
   
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
@@ -100,12 +114,27 @@ class OrderModel {
         (e) => e.toString() == 'OrderStatus.${data['status'] ?? 'placed'}',
         orElse: () => OrderStatus.placed,
       ),
-      orderTime: (data['order_time'] as Timestamp).toDate(),
+      orderTime: data['order_time'] != null 
+          ? (data['order_time'] as Timestamp).toDate()
+          : DateTime.now(),
       pickupTime: data['pickup_time'] != null 
           ? (data['pickup_time'] as Timestamp).toDate() 
           : null,
       note: data['note'],
       promotionId: data['promotion_id'],
+      rejectionReason: data['rejection_reason'],
+      acceptedTime: data['accepted_time'] != null 
+          ? (data['accepted_time'] as Timestamp).toDate() 
+          : null,
+      preparingTime: data['preparing_time'] != null 
+          ? (data['preparing_time'] as Timestamp).toDate() 
+          : null,
+      readyTime: data['ready_time'] != null 
+          ? (data['ready_time'] as Timestamp).toDate() 
+          : null,
+      pickupLocation: data['pickup_location'],
+      estimatedReadyTime: data['estimated_ready_time'],
+      cancellationRequestStatus: data['cancellation_request_status'],
     );
   }
   
@@ -123,6 +152,13 @@ class OrderModel {
       'pickup_time': pickupTime != null ? Timestamp.fromDate(pickupTime!) : null,
       'note': note,
       'promotion_id': promotionId,
+      'rejection_reason': rejectionReason,
+      'accepted_time': acceptedTime != null ? Timestamp.fromDate(acceptedTime!) : null,
+      'preparing_time': preparingTime != null ? Timestamp.fromDate(preparingTime!) : null,
+      'ready_time': readyTime != null ? Timestamp.fromDate(readyTime!) : null,
+      'pickup_location': pickupLocation,
+      'estimated_ready_time': estimatedReadyTime,
+      'cancellation_request_status': cancellationRequestStatus,
     };
   }
 

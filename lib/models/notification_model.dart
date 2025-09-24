@@ -1,78 +1,116 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum NotificationType {
-  orderUpdate,
-  promotion,
-  walletAlert,
-  adminMessage
+  orderPlaced,
+  orderAccepted,
+  orderPreparing,
+  orderReady,
+  orderCompleted,
+  orderCancelled,
+  orderRejected,
+  paymentReceived,
+  paymentRefunded,
+  reviewReceived,
+  general,
+}
+
+enum NotificationPriority {
+  low,
+  medium,
+  high,
+  urgent,
 }
 
 class NotificationModel {
   final String id;
-  final String userId; // Recipient user ID
+  final String userId;
+  final String? vendorId;
+  final String? orderId;
+  final NotificationType type;
   final String title;
   final String message;
-  final NotificationType type;
-  final DateTime timestamp;
   final bool isRead;
-  final String? actionData; // e.g., order ID, vendor ID for deep linking
-  final String? imageUrl; // Optional image for rich notifications
-  
+  final DateTime timestamp;
+  final NotificationPriority priority;
+  final Map<String, dynamic>? data;
+
   NotificationModel({
     required this.id,
     required this.userId,
+    this.vendorId,
+    this.orderId,
+    required this.type,
     required this.title,
     required this.message,
-    required this.type,
+    this.isRead = false,
     required this.timestamp,
-    required this.isRead,
-    this.actionData,
-    this.imageUrl,
+    this.priority = NotificationPriority.medium,
+    this.data,
   });
-  
+
   factory NotificationModel.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return NotificationModel(
       id: doc.id,
       userId: data['user_id'] ?? '',
+      vendorId: data['vendor_id'],
+      orderId: data['order_id'],
+      type: NotificationType.values.firstWhere(
+        (e) => e.toString().split('.').last == data['type'],
+        orElse: () => NotificationType.general,
+      ),
       title: data['title'] ?? '',
       message: data['message'] ?? '',
-      type: NotificationType.values.firstWhere(
-        (e) => e.toString() == 'NotificationType.${data['type'] ?? 'orderUpdate'}',
-        orElse: () => NotificationType.orderUpdate,
-      ),
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
       isRead: data['is_read'] ?? false,
-      actionData: data['action_data'],
-      imageUrl: data['image_url'],
+      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      priority: NotificationPriority.values.firstWhere(
+        (e) => e.toString().split('.').last == data['priority'],
+        orElse: () => NotificationPriority.medium,
+      ),
+      data: data['data'],
     );
   }
-  
+
   Map<String, dynamic> toMap() {
     return {
       'user_id': userId,
+      'vendor_id': vendorId,
+      'order_id': orderId,
+      'type': type.toString().split('.').last,
       'title': title,
       'message': message,
-      'type': type.toString().split('.').last,
-      'timestamp': Timestamp.fromDate(timestamp),
       'is_read': isRead,
-      'action_data': actionData,
-      'image_url': imageUrl,
+      'timestamp': Timestamp.fromDate(timestamp),
+      'priority': priority.toString().split('.').last,
+      'data': data,
     };
   }
-  
-  // Mark notification as read
-  NotificationModel markAsRead() {
+
+  NotificationModel copyWith({
+    String? id,
+    String? userId,
+    String? vendorId,
+    String? orderId,
+    NotificationType? type,
+    String? title,
+    String? message,
+    bool? isRead,
+    DateTime? timestamp,
+    NotificationPriority? priority,
+    Map<String, dynamic>? data,
+  }) {
     return NotificationModel(
-      id: id,
-      userId: userId,
-      title: title,
-      message: message,
-      type: type,
-      timestamp: timestamp,
-      isRead: true,
-      actionData: actionData,
-      imageUrl: imageUrl,
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      vendorId: vendorId ?? this.vendorId,
+      orderId: orderId ?? this.orderId,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      isRead: isRead ?? this.isRead,
+      timestamp: timestamp ?? this.timestamp,
+      priority: priority ?? this.priority,
+      data: data ?? this.data,
     );
   }
 }

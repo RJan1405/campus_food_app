@@ -11,6 +11,9 @@ class VendorModel {
   final String? imageUrl;
   final double rating;
   final int totalRatings;
+  final String? phoneNumber; // Vendor contact phone number
+  final String? email; // Vendor contact email
+  final String? ownerName; // Name of the vendor owner
   
   VendorModel({
     required this.id,
@@ -23,6 +26,9 @@ class VendorModel {
     this.imageUrl,
     this.rating = 0.0,
     this.totalRatings = 0,
+    this.phoneNumber,
+    this.email,
+    this.ownerName,
   });
   
   factory VendorModel.fromFirestore(DocumentSnapshot doc) {
@@ -40,6 +46,9 @@ class VendorModel {
       imageUrl: data['image_url'],
       rating: (data['rating'] ?? 0.0).toDouble(),
       totalRatings: data['total_ratings'] ?? 0,
+      phoneNumber: data['phone_number'],
+      email: data['email'],
+      ownerName: data['owner_name'],
     );
   }
   
@@ -54,6 +63,9 @@ class VendorModel {
       'image_url': imageUrl,
       'rating': rating,
       'total_ratings': totalRatings,
+      'phone_number': phoneNumber,
+      'email': email,
+      'owner_name': ownerName,
     };
   }
 }

@@ -38,7 +38,9 @@ class WalletTransactionModel {
         (e) => e.toString() == 'TransactionType.${data['type'] ?? 'topup'}',
         orElse: () => TransactionType.topup,
       ),
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      timestamp: data['timestamp'] != null 
+          ? (data['timestamp'] as Timestamp).toDate()
+          : DateTime.now(),
       orderId: data['order_id'],
       paymentMethod: data['payment_method'],
       transactionReference: data['transaction_reference'],

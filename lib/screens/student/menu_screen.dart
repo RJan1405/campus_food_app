@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:campus_food_app/models/menu_item_model.dart';
 import 'package:campus_food_app/providers/vendor_provider.dart';
 import 'package:campus_food_app/providers/cart_provider.dart';
+import 'package:campus_food_app/services/favorites_service.dart';
+import 'package:campus_food_app/widgets/rating_widgets.dart';
+import 'package:campus_food_app/screens/student/reviews_screen.dart';
 
 class MenuScreen extends StatefulWidget {
   final String vendorId;
@@ -14,6 +18,10 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
+  final FavoritesService _favoritesService = FavoritesService();
+  Map<String, bool> _favoriteStatus = {};
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
@@ -23,6 +31,66 @@ class _MenuScreenState extends State<MenuScreen> {
         Provider.of<VendorProvider>(context, listen: false).fetchVendorById(widget.vendorId);
       }
     });
+    _startPeriodicRefresh();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPeriodicRefresh() {
+    // Refresh vendor data every 60 seconds to get updated ratings
+    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
+      if (mounted) {
+        Provider.of<VendorProvider>(context, listen: false).fetchVendorById(widget.vendorId);
+      }
+    });
+  }
+
+  Future<void> _checkFavoriteStatus(String menuItemId) async {
+    final isFavorite = await _favoritesService.isFavorite(menuItemId);
+    setState(() {
+      _favoriteStatus[menuItemId] = isFavorite;
+    });
+  }
+
+  Future<void> _toggleFavorite(MenuItemModel menuItem) async {
+    try {
+      final isCurrentlyFavorite = _favoriteStatus[menuItem.id] ?? false;
+      
+      if (isCurrentlyFavorite) {
+        await _favoritesService.removeFromFavorites(menuItem.id);
+        setState(() {
+          _favoriteStatus[menuItem.id] = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Removed from favorites'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        await _favoritesService.addToFavorites(menuItem);
+        setState(() {
+          _favoriteStatus[menuItem.id] = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Added to favorites'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -120,6 +188,9 @@ class _MenuScreenState extends State<MenuScreen> {
                   image: DecorationImage(
                     image: NetworkImage(menuItem.imageUrl!),
                     fit: BoxFit.cover,
+                    onError: (exception, stackTrace) {
+                      // Handle image loading errors gracefully
+                    },
                   ),
                 ),
               ),
@@ -153,6 +224,23 @@ class _MenuScreenState extends State<MenuScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _favoriteStatus[menuItem.id] == true 
+                              ? Icons.favorite 
+                              : Icons.favorite_border,
+                          color: _favoriteStatus[menuItem.id] == true 
+                              ? Colors.red 
+                              : Colors.grey,
+                        ),
+                        onPressed: () {
+                          _checkFavoriteStatus(menuItem.id);
+                          _toggleFavorite(menuItem);
+                        },
+                        tooltip: _favoriteStatus[menuItem.id] == true 
+                            ? 'Remove from favorites' 
+                            : 'Add to favorites',
                       ),
                     ],
                   ),
@@ -188,6 +276,54 @@ class _MenuScreenState extends State<MenuScreen> {
                                 fontSize: 12,
                               ),
                             ),
+                          const SizedBox(height: 4),
+                          // Rating display
+                          Row(
+                            children: [
+                              RatingDisplay(
+                                rating: menuItem.rating,
+                                totalReviews: menuItem.reviewCount,
+                                size: 12,
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => _navigateToMenuItemReviews(menuItem),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.deepPurple.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.deepPurple.shade200,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.star,
+                                        size: 10,
+                                        color: Colors.deepPurple.shade400,
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        'Reviews',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.deepPurple.shade600,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                       ElevatedButton(
@@ -219,5 +355,31 @@ class _MenuScreenState extends State<MenuScreen> {
         ),
       ),
     );
+  }
+
+  void _navigateToMenuItemReviews(MenuItemModel menuItem) async {
+    final vendorProvider = Provider.of<VendorProvider>(context, listen: false);
+    final vendor = vendorProvider.selectedVendor;
+    
+    if (vendor != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ReviewsScreen(
+            vendorId: vendor.id,
+            menuItemId: menuItem.id,
+            vendorName: vendor.name,
+            menuItemName: menuItem.name,
+          ),
+        ),
+      );
+      
+      // Refresh vendor data when returning from reviews
+      try {
+        vendorProvider.refreshVendorData();
+      } catch (e) {
+        print('Error refreshing vendor data: $e');
+      }
+    }
   }
 }

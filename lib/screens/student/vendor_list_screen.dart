@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:campus_food_app/models/vendor_model.dart';
 import 'package:campus_food_app/providers/vendor_provider.dart';
 import 'package:campus_food_app/screens/student/menu_screen.dart';
+import 'package:campus_food_app/widgets/rating_widgets.dart';
+import 'package:campus_food_app/screens/student/reviews_screen.dart';
 
 class VendorListScreen extends StatefulWidget {
   const VendorListScreen({Key? key}) : super(key: key);
@@ -12,12 +15,30 @@ class VendorListScreen extends StatefulWidget {
 }
 
 class _VendorListScreenState extends State<VendorListScreen> {
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
     // Fetch vendors when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<VendorProvider>(context, listen: false).fetchAllVendors();
+    });
+    _startPeriodicRefresh();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPeriodicRefresh() {
+    // Refresh vendors every 60 seconds to get updated ratings
+    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
+      if (mounted) {
+        Provider.of<VendorProvider>(context, listen: false).fetchAllVendors();
+      }
     });
   }
 
@@ -82,8 +103,11 @@ class _VendorListScreenState extends State<VendorListScreen> {
                   image: DecorationImage(
                     image: vendor.imageUrl?.isNotEmpty == true
                         ? NetworkImage(vendor.imageUrl!)
-                        : const AssetImage('assets/images/vendor_placeholder.png') as ImageProvider,
+                        : const AssetImage('assets/images/placeholder_food.jpg') as ImageProvider,
                     fit: BoxFit.cover,
+                    onError: (exception, stackTrace) {
+                      // Handle image loading errors gracefully
+                    },
                   ),
                 ),
               ),
@@ -127,6 +151,55 @@ class _VendorListScreenState extends State<VendorListScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    // Rating display
+                    Row(
+                      children: [
+                        RatingDisplay(
+                          rating: vendor.rating ?? 0.0,
+                          totalReviews: vendor.totalRatings ?? 0,
+                          size: 14,
+                        ),
+                        const Spacer(),
+                        // Reviews button
+                        GestureDetector(
+                          onTap: () => _navigateToReviews(vendor),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.deepPurple.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.deepPurple.shade200,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.star,
+                                  size: 12,
+                                  color: Colors.deepPurple.shade400,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Reviews',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.deepPurple.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -137,5 +210,24 @@ class _VendorListScreenState extends State<VendorListScreen> {
         ),
       ),
     );
+  }
+
+  void _navigateToReviews(VendorModel vendor) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReviewsScreen(
+          vendorId: vendor.id,
+          vendorName: vendor.name,
+        ),
+      ),
+    );
+    
+    // Refresh vendor data when returning from reviews
+    try {
+      Provider.of<VendorProvider>(context, listen: false).refreshVendorData();
+    } catch (e) {
+      print('Error refreshing vendor data: $e');
+    }
   }
 }

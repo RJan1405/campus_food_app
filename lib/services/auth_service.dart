@@ -22,6 +22,12 @@ class AuthService {
         'created_at': FieldValue.serverTimestamp(),
       });
       print('User document created successfully with role: $role');
+      
+      // If user is registering as a vendor, create a vendor document
+      if (role == 'vendor') {
+        await _createVendorDocument(userCredential.user!.uid, email);
+      }
+      
       return userCredential.user;
     } catch (e) {
       print('SignUp Error: $e');
@@ -250,7 +256,7 @@ class AuthService {
         'role': 'student',
         'wallet_balance': 100.0,
         'name': 'Test User',
-        'phone': '1234567890',
+        'phone_number': '1234567890',
         'campus_id': 'TEST001',
       });
 
@@ -287,15 +293,73 @@ class AuthService {
         'role': 'vendor',
         'wallet_balance': 0.0,
         'name': 'Test Vendor',
-        'phone': '1234567890',
+        'phone_number': '1234567890',
         'campus_id': 'VENDOR001',
       });
+
+      // Create vendor document
+      await _createVendorDocument(userCredential.user!.uid, testEmail, 'Test Vendor');
 
       print('Test vendor account created successfully');
       return userCredential.user;
     } catch (e) {
       print('Error creating test vendor account: $e');
       return null;
+    }
+  }
+
+  // Create a vendor document in the vendors collection
+  Future<void> _createVendorDocument(String userId, String email, [String? name]) async {
+    try {
+      // Extract vendor name from email if not provided
+      String vendorName = name ?? email.split('@')[0].replaceAll('.', ' ').split(' ').map((word) => 
+        word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : ''
+      ).join(' ');
+
+      await _firestore.collection('vendors').doc(userId).set({
+        'name': vendorName,
+        'description': 'Welcome to $vendorName! We serve delicious food.',
+        'location': 'Campus Food Court',
+        'owner_id': userId,
+        'is_open': true,
+        'food_types': ['Fast Food', 'Beverages'],
+        'image_url': null,
+        'rating': 0.0,
+        'total_ratings': 0,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      
+      print('Vendor document created successfully for user: $userId');
+    } catch (e) {
+      print('Error creating vendor document: $e');
+      throw Exception('Failed to create vendor profile: $e');
+    }
+  }
+
+  // Create vendor document with complete user data
+  Future<void> createVendorWithUserData(String userId, String email, String name, String phone, String campusId) async {
+    try {
+      await _firestore.collection('vendors').doc(userId).set({
+        'name': name,
+        'description': 'Welcome to $name! We serve delicious food.',
+        'location': 'Campus Food Court',
+        'owner_id': userId,
+        'is_open': true,
+        'food_types': ['Fast Food', 'Beverages'],
+        'image_url': null,
+        'rating': 0.0,
+        'total_ratings': 0,
+        'phone_number': phone,
+        'campus_id': campusId,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      
+      print('Vendor document created successfully for user: $userId with name: $name');
+    } catch (e) {
+      print('Error creating vendor document: $e');
+      throw Exception('Failed to create vendor profile: $e');
     }
   }
 }

@@ -19,8 +19,7 @@ class CartProvider with ChangeNotifier {
   void initCart(String userId) {
     _cart = CartModel(
       userId: userId,
-      vendorId: '',
-      items: [],
+      vendorItems: {},
       subtotal: 0.0,
       discount: 0.0,
       total: 0.0,
@@ -80,8 +79,7 @@ class CartProvider with ChangeNotifier {
     if (_cart != null) {
       _cart = CartModel(
         userId: _cart!.userId,
-        vendorId: '',
-        items: [],
+        vendorItems: {},
         subtotal: 0.0,
         discount: 0.0,
         total: 0.0,
@@ -93,7 +91,7 @@ class CartProvider with ChangeNotifier {
   }
 
   Future<void> applyPromotion(String promotionId) async {
-    if (_cart == null || _cart!.items.isEmpty) return;
+    if (_cart == null || _cart!.allItems.isEmpty) return;
     
     try {
       final discount = await _promotionService.calculatePromotionDiscount(

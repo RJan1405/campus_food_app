@@ -1,299 +1,297 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-// import 'package:flutter_local_notifications/flutter_local_notifications.dart';  // Temporarily disabled
 import '../models/notification_model.dart';
-import '../models/order_model.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
-  // Collection references
-  final CollectionReference _notificationsCollection = 
-      FirebaseFirestore.instance.collection('notifications');
-  
-  // Flutter Local Notifications Plugin - Temporarily disabled
-  // final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = 
-  //     FlutterLocalNotificationsPlugin();
-  
-  // Initialize notification service
-  Future<void> initialize() async {
-    try {
-      // Initialize Flutter Local Notifications - Temporarily disabled
-      // const AndroidInitializationSettings initializationSettingsAndroid = 
-      //     AndroidInitializationSettings('@mipmap/ic_launcher');
-      
-      // const DarwinInitializationSettings initializationSettingsIOS = 
-      //     DarwinInitializationSettings();
-      
-      // const InitializationSettings initializationSettings = InitializationSettings(
-      //   android: initializationSettingsAndroid,
-      //   iOS: initializationSettingsIOS,
-      // );
-      
-      // await _flutterLocalNotificationsPlugin.initialize(
-      //   initializationSettings,
-      // );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error initializing notification service: $e');
-      }
-    }
-  }
-  
-  // Send notification to a user
-  Future<String> sendNotification({
+
+  // Send notification to a specific user
+  Future<void> sendNotification({
     required String userId,
+    String? vendorId,
+    String? orderId,
+    required NotificationType type,
     required String title,
     required String message,
-    required NotificationType type,
-    String? actionData,
-    String? imageUrl,
+    NotificationPriority priority = NotificationPriority.medium,
+    Map<String, dynamic>? data,
   }) async {
     try {
-      // Create notification in Firestore
-      NotificationModel notification = NotificationModel(
-        id: '',
+      final notification = NotificationModel(
+        id: '', // Firestore will generate this
         userId: userId,
+        vendorId: vendorId,
+        orderId: orderId,
+        type: type,
         title: title,
         message: message,
-        type: type,
+        priority: priority,
+        data: data,
         timestamp: DateTime.now(),
-        isRead: false,
-        actionData: actionData,
-        imageUrl: imageUrl,
       );
+
+      await _firestore.collection('notifications').add(notification.toMap());
       
-      DocumentReference docRef = await _notificationsCollection.add(notification.toMap());
-      
-      // Show local notification
-      await _showLocalNotification(title, message);
-      
-      return docRef.id;
+      if (kDebugMode) {
+        print('Notification sent to user $userId: $title');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error sending notification: $e');
       }
-      throw Exception('Failed to send notification: $e');
+      rethrow;
     }
   }
-  
-  // Show local notification - Temporarily disabled
-  Future<void> _showLocalNotification(String title, String body) async {
+
+  // Send notification to multiple users
+  Future<void> sendNotificationToMultiple({
+    required List<String> userIds,
+    String? vendorId,
+    String? orderId,
+    required NotificationType type,
+    required String title,
+    required String message,
+    NotificationPriority priority = NotificationPriority.medium,
+    Map<String, dynamic>? data,
+  }) async {
     try {
-      // const AndroidNotificationDetails androidPlatformChannelSpecifics =
-      //     AndroidNotificationDetails(
-      //   'campus_food_app_channel',
-      //   'Campus Food App Notifications',
-      //   importance: Importance.max,
-      //   priority: Priority.high,
-      // );
+      final batch = _firestore.batch();
       
-      // const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-      //     DarwinNotificationDetails();
+      for (final userId in userIds) {
+        final notification = NotificationModel(
+          id: '', // Firestore will generate this
+          userId: userId,
+          vendorId: vendorId,
+          orderId: orderId,
+          type: type,
+          title: title,
+          message: message,
+          priority: priority,
+          data: data,
+          timestamp: DateTime.now(),
+        );
+
+        final docRef = _firestore.collection('notifications').doc();
+        batch.set(docRef, notification.toMap());
+      }
       
-      // const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      //   android: androidPlatformChannelSpecifics,
-      //   iOS: iOSPlatformChannelSpecifics,
-      // );
+      await batch.commit();
       
-      // await _flutterLocalNotificationsPlugin.show(
-      //   0,
-      //   title,
-      //   body,
-      //   platformChannelSpecifics,
-      // );
+      if (kDebugMode) {
+        print('Notifications sent to ${userIds.length} users: $title');
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Error showing local notification: $e');
+        print('Error sending notifications to multiple users: $e');
       }
+      rethrow;
     }
   }
-  
-  // Send order status notification
-  Future<String> sendOrderStatusNotification({
-    required String userId,
-    required String orderId,
-    required String vendorName,
-    required OrderStatus status,
-  }) async {
-    String title;
-    String message;
-    
-    switch (status) {
-      case OrderStatus.accepted:
-        title = 'Order Accepted';
-        message = '$vendorName has accepted your order';
-        break;
-      case OrderStatus.preparing:
-        title = 'Order Being Prepared';
-        message = '$vendorName is preparing your order';
-        break;
-      case OrderStatus.ready:
-        title = 'Order Ready for Pickup';
-        message = 'Your order from $vendorName is ready for pickup';
-        break;
-      case OrderStatus.completed:
-        title = 'Order Completed';
-        message = 'Your order from $vendorName has been completed';
-        break;
-      case OrderStatus.cancelled:
-        title = 'Order Cancelled';
-        message = 'Your order from $vendorName has been cancelled';
-        break;
-      case OrderStatus.rejected:
-        title = 'Order Rejected';
-        message = '$vendorName could not accept your order';
-        break;
-      default:
-        title = 'Order Update';
-        message = 'There is an update to your order from $vendorName';
-    }
-    
-    return sendNotification(
-      userId: userId,
-      title: title,
-      message: message,
-      type: NotificationType.orderUpdate,
-      actionData: orderId,
-    );
-  }
-  
-  // Send wallet alert notification
-  Future<String> sendWalletAlertNotification({
-    required String userId,
-    required double balance,
-    required bool isLowBalance,
-  }) async {
-    String title;
-    String message;
-    
-    if (isLowBalance) {
-      title = 'Low Wallet Balance';
-      message = 'Your wallet balance is low (₹$balance). Please top up to continue ordering.';
-    } else {
-      title = 'Wallet Updated';
-      message = 'Your wallet has been updated. Current balance: ₹$balance';
-    }
-    
-    return sendNotification(
-      userId: userId,
-      title: title,
-      message: message,
-      type: NotificationType.walletAlert,
-    );
-  }
-  
-  // Send promotional notification
-  Future<String> sendPromotionalNotification({
-    required String userId,
-    required String vendorId,
-    required String vendorName,
-    required String promotionTitle,
-    String? imageUrl,
-  }) async {
-    return sendNotification(
-      userId: userId,
-      title: 'New Offer from $vendorName',
-      message: promotionTitle,
-      type: NotificationType.promotion,
-      actionData: vendorId,
-      imageUrl: imageUrl,
-    );
-  }
-  
+
   // Get user notifications
-  Future<List<NotificationModel>> getUserNotifications(String userId) async {
-    try {
-      QuerySnapshot querySnapshot = await _notificationsCollection
-          .where('user_id', isEqualTo: userId)
-          .orderBy('timestamp', descending: true)
-          .get();
-      
-      return querySnapshot.docs
-          .map((doc) => NotificationModel.fromFirestore(doc))
-          .toList();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting user notifications: $e');
-      }
-      throw Exception('Failed to get user notifications: $e');
-    }
+  Stream<List<NotificationModel>> getUserNotifications(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('user_id', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationModel.fromFirestore(doc))
+            .toList());
   }
-  
+
+  // Get unread notification count
+  Stream<int> getUnreadNotificationCount(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('user_id', isEqualTo: userId)
+        .where('is_read', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
   // Mark notification as read
-  Future<void> markNotificationAsRead(String notificationId) async {
+  Future<void> markAsRead(String notificationId) async {
     try {
-      await _notificationsCollection.doc(notificationId).update({
+      await _firestore.collection('notifications').doc(notificationId).update({
         'is_read': true,
       });
     } catch (e) {
       if (kDebugMode) {
         print('Error marking notification as read: $e');
       }
-      throw Exception('Failed to mark notification as read: $e');
+      rethrow;
     }
   }
-  
-  // Mark all user notifications as read
-  Future<void> markAllNotificationsAsRead(String userId) async {
+
+  // Mark all notifications as read for a user
+  Future<void> markAllAsRead(String userId) async {
     try {
-      QuerySnapshot querySnapshot = await _notificationsCollection
+      final notifications = await _firestore
+          .collection('notifications')
           .where('user_id', isEqualTo: userId)
           .where('is_read', isEqualTo: false)
           .get();
-      
-      WriteBatch batch = _firestore.batch();
-      
-      for (var doc in querySnapshot.docs) {
+
+      final batch = _firestore.batch();
+      for (final doc in notifications.docs) {
         batch.update(doc.reference, {'is_read': true});
       }
-      
       await batch.commit();
     } catch (e) {
       if (kDebugMode) {
         print('Error marking all notifications as read: $e');
       }
-      throw Exception('Failed to mark all notifications as read: $e');
+      rethrow;
     }
   }
-  
-  // Delete a notification
+
+  // Delete notification
   Future<void> deleteNotification(String notificationId) async {
     try {
-      await _notificationsCollection.doc(notificationId).delete();
+      await _firestore.collection('notifications').doc(notificationId).delete();
     } catch (e) {
       if (kDebugMode) {
         print('Error deleting notification: $e');
       }
-      throw Exception('Failed to delete notification: $e');
+      rethrow;
     }
   }
-  
-  // Stream of user notifications - renamed to match what's being called in the provider
-  // Stream of user notifications - renamed to match what's being called in the provider
-  Stream<List<NotificationModel>> getUserNotificationsStream(String userId) {
-    return _notificationsCollection
-        .where('user_id', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) => 
-            snapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)).toList());
-  }
-  
-  // Get unread notification count
-  Future<int> getUnreadNotificationCount(String userId) async {
+
+  // Clear old notifications (older than 30 days)
+  Future<void> clearOldNotifications() async {
     try {
-      QuerySnapshot querySnapshot = await _notificationsCollection
-          .where('user_id', isEqualTo: userId)
-          .where('is_read', isEqualTo: false)
-          .get();
+      final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
       
-      return querySnapshot.docs.length;
+      final oldNotifications = await _firestore
+          .collection('notifications')
+          .where('timestamp', isLessThan: Timestamp.fromDate(thirtyDaysAgo))
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in oldNotifications.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      
+      if (kDebugMode) {
+        print('Cleared ${oldNotifications.docs.length} old notifications');
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Error getting unread notification count: $e');
+        print('Error clearing old notifications: $e');
       }
-      throw Exception('Failed to get unread notification count: $e');
+      rethrow;
     }
+  }
+
+  // Order-specific notification methods
+  Future<void> notifyOrderPlaced(String userId, String orderId, String vendorName) async {
+    await sendNotification(
+      userId: userId,
+      orderId: orderId,
+      type: NotificationType.orderPlaced,
+      title: 'Order Placed Successfully',
+      message: 'Your order has been placed at $vendorName and is being processed.',
+      priority: NotificationPriority.medium,
+    );
+  }
+
+  Future<void> notifyOrderAccepted(String userId, String orderId, String vendorName) async {
+    await sendNotification(
+      userId: userId,
+      orderId: orderId,
+      type: NotificationType.orderAccepted,
+      title: 'Order Accepted',
+      message: 'Your order at $vendorName has been accepted and is being prepared.',
+      priority: NotificationPriority.high,
+    );
+  }
+
+  Future<void> notifyOrderPreparing(String userId, String orderId, String vendorName) async {
+    await sendNotification(
+      userId: userId,
+      orderId: orderId,
+      type: NotificationType.orderPreparing,
+      title: 'Food is Being Prepared',
+      message: 'Your order at $vendorName is being prepared. It will be ready soon!',
+      priority: NotificationPriority.medium,
+    );
+  }
+
+  Future<void> notifyOrderReady(String userId, String orderId, String vendorName) async {
+    await sendNotification(
+      userId: userId,
+      orderId: orderId,
+      type: NotificationType.orderReady,
+      title: 'Order Ready for Pickup',
+      message: 'Your order at $vendorName is ready for pickup!',
+      priority: NotificationPriority.high,
+    );
+  }
+
+  Future<void> notifyOrderCompleted(String userId, String orderId, String vendorName) async {
+    await sendNotification(
+      userId: userId,
+      orderId: orderId,
+      type: NotificationType.orderCompleted,
+      title: 'Order Completed',
+      message: 'Your order at $vendorName has been completed. Thank you!',
+      priority: NotificationPriority.medium,
+    );
+  }
+
+  Future<void> notifyOrderCancelled(String userId, String orderId, String vendorName, String reason) async {
+    await sendNotification(
+      userId: userId,
+      orderId: orderId,
+      type: NotificationType.orderCancelled,
+      title: 'Order Cancelled',
+      message: 'Your order at $vendorName has been cancelled. Reason: $reason',
+      priority: NotificationPriority.high,
+    );
+  }
+
+  Future<void> notifyOrderRejected(String userId, String orderId, String vendorName, String reason) async {
+    await sendNotification(
+      userId: userId,
+      orderId: orderId,
+      type: NotificationType.orderRejected,
+      title: 'Order Rejected',
+      message: 'Your order at $vendorName has been rejected. Reason: $reason',
+      priority: NotificationPriority.high,
+    );
+  }
+
+  Future<void> notifyPaymentReceived(String vendorId, String orderId, double amount) async {
+    await sendNotification(
+      userId: vendorId,
+      orderId: orderId,
+      type: NotificationType.paymentReceived,
+      title: 'Payment Received',
+      message: 'You have received ₹${amount.toStringAsFixed(2)} for order #${orderId.substring(0, 8)}',
+      priority: NotificationPriority.high,
+    );
+  }
+
+  Future<void> notifyPaymentRefunded(String userId, String orderId, double amount) async {
+    await sendNotification(
+      userId: userId,
+      orderId: orderId,
+      type: NotificationType.paymentRefunded,
+      title: 'Payment Refunded',
+      message: '₹${amount.toStringAsFixed(2)} has been refunded to your wallet for order #${orderId.substring(0, 8)}',
+      priority: NotificationPriority.high,
+    );
+  }
+
+  Future<void> notifyReviewReceived(String vendorId, String reviewerName, double rating) async {
+    await sendNotification(
+      userId: vendorId,
+      type: NotificationType.reviewReceived,
+      title: 'New Review Received',
+      message: '$reviewerName rated you $rating stars!',
+      priority: NotificationPriority.medium,
+    );
   }
 }

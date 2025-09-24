@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:campus_food_app/services/auth_service.dart';
 import 'package:campus_food_app/screens/student/wallet_screen.dart';
 import 'package:campus_food_app/screens/student/vendor_list_screen.dart';
+import 'package:campus_food_app/screens/student/transaction_history_screen.dart';
+import 'package:campus_food_app/screens/student/favorites_screen.dart';
+import 'package:campus_food_app/screens/student/cart_screen.dart';
+import 'package:campus_food_app/providers/cart_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -132,6 +137,62 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   
+                  // Cart Summary
+                  Consumer<CartProvider>(
+                    builder: (context, cartProvider, child) {
+                      if (cartProvider.cart != null && !cartProvider.cart!.isEmpty) {
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          elevation: 4,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CartScreen(),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.shopping_cart,
+                                    size: 40,
+                                    color: Colors.deepPurple,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Cart',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${cartProvider.cart!.itemCount} items • ₹${cartProvider.cart!.total.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  const Icon(Icons.arrow_forward_ios),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  
                   // Quick Actions
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -175,9 +236,35 @@ class _HomeScreenState extends State<HomeScreen> {
                               },
                             ),
                             _buildActionCard(
+                              'Favorites',
+                              Icons.favorite,
+                              Colors.red,
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const FavoritesScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildActionCard(
+                              'Transaction History',
+                              Icons.history,
+                              Colors.purple,
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const TransactionHistoryScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildActionCard(
                               'Notifications',
                               Icons.notifications,
-                              Colors.red,
+                              Colors.amber,
                               () {
                                 Navigator.pushNamed(context, '/student/notifications');
                               },

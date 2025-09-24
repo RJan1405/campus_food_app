@@ -7,7 +7,10 @@ import 'package:campus_food_app/screens/auth/login_screen.dart';
 import 'package:campus_food_app/screens/student/home_screen.dart';
 import 'package:campus_food_app/screens/student/profile_screen.dart';
 import 'package:campus_food_app/screens/student/order_history_screen.dart';
-import 'package:campus_food_app/screens/student/notification_screen.dart';
+import 'package:campus_food_app/screens/student/notifications_screen.dart';
+import 'package:campus_food_app/screens/student/cart_screen.dart';
+import 'package:campus_food_app/screens/student/payment_screen.dart';
+import 'package:campus_food_app/screens/student/wallet_screen.dart';
 import 'package:campus_food_app/screens/vendor/dashboard_screen.dart';
 
 class AppRoutes {
@@ -16,6 +19,9 @@ class AppRoutes {
   static const String studentProfile = '/student/profile';
   static const String studentOrders = '/student/orders';
   static const String studentNotifications = '/student/notifications';
+  static const String studentCart = '/student/cart';
+  static const String studentPayment = '/student/payment';
+  static const String studentWallet = '/student/wallet';
   static const String vendorDashboard = '/vendor/dashboard';
   static const String adminDashboard = '/admin/dashboard';
   static const String adminVendors = '/admin/vendors';
@@ -28,7 +34,10 @@ class AppRoutes {
       studentHome: (context) => const HomeScreen(),
       studentProfile: (context) => const ProfileScreen(),
       studentOrders: (context) => const OrderHistoryScreen(),
-      studentNotifications: (context) => const NotificationScreen(),
+      studentNotifications: (context) => const NotificationsScreen(),
+      studentCart: (context) => const CartScreen(),
+    studentPayment: (context) => const PaymentScreen(),
+    studentWallet: (context) => const WalletScreen(),
       vendorDashboard: (context) => const DashboardScreen(),
       adminDashboard: (context) => const AdminDashboardScreen(),
       adminVendors: (context) => const VendorManagementScreen(),

@@ -53,6 +53,14 @@ class VendorProvider with ChangeNotifier {
     }
   }
 
+  // Refresh vendor data to get updated ratings
+  Future<void> refreshVendorData() async {
+    if (_selectedVendor != null) {
+      await fetchVendorById(_selectedVendor!.id);
+    }
+    await fetchAllVendors();
+  }
+
   Future<void> searchVendors(String query) async {
     _isLoading = true;
     notifyListeners();

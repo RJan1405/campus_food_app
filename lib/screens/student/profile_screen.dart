@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:campus_food_app/services/auth_service.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -101,13 +102,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _userData?['email'] ?? 'No email',
+                            _userData?['name'] ?? _userData?['email'] ?? 'No name',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          if (_userData?['name'] != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _userData?['email'] ?? 'No email',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -138,6 +149,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
+                        _buildProfileOption(
+                          'Edit Profile',
+                          Icons.edit,
+                          () {
+                            _navigateToEditProfile();
+                          },
+                        ),
                         _buildProfileOption(
                           'Personal Information',
                           Icons.person_outline,
@@ -220,7 +238,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildInfoRow('Name', _userData?['name'] ?? 'Not set'),
             _buildInfoRow('Email', _userData?['email'] ?? 'N/A'),
+            _buildInfoRow('Phone', _userData?['phone_number'] ?? 'Not set'),
+            _buildInfoRow('Campus ID', _userData?['campus_id'] ?? 'Not set'),
             _buildInfoRow('Role', _userData?['role'] ?? 'Student'),
             _buildInfoRow('Wallet Balance', '₹${(_userData?['wallet_balance'] ?? 0.0).toStringAsFixed(2)}'),
             _buildInfoRow('User ID', FirebaseAuth.instance.currentUser?.uid ?? 'N/A'),
@@ -301,6 +322,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(value),
           ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToEditProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProfileScreen(
+          userData: _userData,
+          onProfileUpdated: _loadUserData, // Refresh data after update
+        ),
       ),
     );
   }

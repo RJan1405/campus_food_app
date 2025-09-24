@@ -62,13 +62,25 @@ class _SignupScreenState extends State<SignupScreen> {
             'email': _emailController.text.trim(),
             'role': _selectedRole,
             'name': _nameController.text.trim(),
-            'phone': _phoneController.text.trim(),
+            'phone_number': _phoneController.text.trim(),
             'campus_id': _campusIdController.text.trim(),
             'wallet_balance': 0.0,
             'created_at': FieldValue.serverTimestamp(),
             'updated_at': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
           print('User document created/updated successfully with role: $_selectedRole');
+
+          // If user is registering as a vendor, create vendor document with user data
+          if (_selectedRole == 'vendor') {
+            await _authService.createVendorWithUserData(
+              user.uid,
+              _emailController.text.trim(),
+              _nameController.text.trim(),
+              _phoneController.text.trim(),
+              _campusIdController.text.trim(),
+            );
+            print('Vendor document created successfully');
+          }
 
           // Clear any previous error messages
           setState(() {

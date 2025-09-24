@@ -17,7 +17,9 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _notifications = await _notificationService.getUserNotifications(userId);
+      // Get the first snapshot from the stream
+      final stream = _notificationService.getUserNotifications(userId);
+      _notifications = await stream.first;
       _calculateUnreadCount();
     } catch (e) {
       print('Error fetching notifications: $e');
@@ -29,12 +31,12 @@ class NotificationProvider with ChangeNotifier {
 
   Future<void> markAsRead(String notificationId) async {
     try {
-      await _notificationService.markNotificationAsRead(notificationId);
+      await _notificationService.markAsRead(notificationId);
       
       // Update local notification
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index != -1) {
-        _notifications[index] = _notifications[index].markAsRead();
+        _notifications[index] = _notifications[index].copyWith(isRead: true);
         _calculateUnreadCount();
         notifyListeners();
       }
@@ -45,11 +47,11 @@ class NotificationProvider with ChangeNotifier {
 
   Future<void> markAllAsRead(String userId) async {
     try {
-      await _notificationService.markAllNotificationsAsRead(userId);
+      await _notificationService.markAllAsRead(userId);
       
       // Update all local notifications
       _notifications = _notifications.map((notification) => 
-        notification.isRead ? notification : notification.markAsRead()
+        notification.isRead ? notification : notification.copyWith(isRead: true)
       ).toList();
       
       _unreadCount = 0;
@@ -65,7 +67,7 @@ class NotificationProvider with ChangeNotifier {
 
   // Listen to real-time notifications
   void startListeningToNotifications(String userId) {
-    _notificationService.getUserNotificationsStream(userId).listen((notifications) {
+    _notificationService.getUserNotifications(userId).listen((notifications) {
       _notifications = notifications;
       _calculateUnreadCount();
       notifyListeners();
