@@ -9,12 +9,14 @@ import 'package:campus_food_app/routes.dart';
 import 'package:campus_food_app/screens/auth/login_screen.dart';
 import 'package:campus_food_app/screens/student/home_screen.dart';
 import 'package:campus_food_app/screens/vendor/dashboard_screen.dart';
-import 'package:campus_food_app/screens/admin/dashboard_screen.dart';
+import 'package:campus_food_app/screens/admin/admin_dashboard_screen.dart';
+import 'package:campus_food_app/screens/vendor/vendor_status_screen.dart';
 import 'package:campus_food_app/providers/user_provider.dart';
 import 'package:campus_food_app/providers/cart_provider.dart';
 import 'package:campus_food_app/providers/order_provider.dart';
 import 'package:campus_food_app/providers/vendor_provider.dart';
 import 'package:campus_food_app/services/auth_service.dart';
+import 'package:campus_food_app/services/admin_service.dart';
 // import 'package:campus_food_app/providers/notification_provider.dart';  // Temporarily disabled
 import 'package:campus_food_app/utils/app_theme.dart';
 
@@ -30,7 +32,40 @@ void main() async {
     // Firebase already initialized, continue
   }
   
+  // Create default admin account if it doesn't exist
+  await _createDefaultAdmin();
+  
   runApp(const MyApp());
+}
+
+// Create default admin account
+Future<void> _createDefaultAdmin() async {
+  try {
+    final authService = AuthService();
+    final adminService = AdminService();
+    
+    // Check if admin already exists
+    final adminExists = await authService.isAdmin();
+    if (adminExists) {
+      print('Default admin already exists');
+      return;
+    }
+    
+    // Create default admin account
+    print('Creating default admin account...');
+    await adminService.createSuperAdmin(
+      email: 'admin@campus.com',
+      password: 'admin123456',
+      name: 'Campus Admin',
+    );
+    print('Default admin created successfully!');
+    print('Admin Credentials:');
+    print('Email: admin@campus.com');
+    print('Password: admin123456');
+  } catch (e) {
+    print('Error creating default admin: $e');
+    // Continue app startup even if admin creation fails
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -69,42 +104,61 @@ class _AuthWrapperState extends State<AuthWrapper> {
   int _retryCount = 0;
   static const int _maxRetries = 3;
 
-  // Ensure user document exists in Firestore with retry mechanism
-  Future<Map<String, dynamic>> _ensureUserDocumentExists(User user) async {
-    final authService = AuthService();
-    
-    for (int attempt = 0; attempt < _maxRetries; attempt++) {
-      try {
-        print('Attempting to ensure user document exists for user: ${user.uid} (attempt ${attempt + 1}/$_maxRetries)');
-        
-        final userData = await authService.ensureUserDocument(
-          user.uid,
-          email: user.email,
-          role: 'student', // Default role, will be updated if user document exists
-        );
-        
-        print('User document found/created successfully for user: ${user.uid}');
-        return userData;
-      } catch (e) {
-        print('Error ensuring user document exists (attempt ${attempt + 1}): $e');
-        
-        // Wait before retrying
-        if (attempt < _maxRetries - 1) {
-          await Future.delayed(Duration(seconds: 2 * (attempt + 1))); // Exponential backoff
+  // Cache for user documents to avoid repeated calls
+  static final Map<String, Map<String, dynamic>> _userDocumentCache = {};
+  
+        // Ensure user document exists in Firestore with caching and robust fallback
+        Future<Map<String, dynamic>> _ensureUserDocumentExists(User user) async {
+          // Check cache first
+          if (_userDocumentCache.containsKey(user.uid)) {
+            print('User document found in cache for: ${user.uid}');
+            return _userDocumentCache[user.uid]!;
+          }
+          
+          final authService = AuthService();
+          
+          try {
+            print('Attempting to ensure user document exists for user: ${user.uid}');
+            
+            final userData = await authService.ensureUserDocument(
+              user.uid,
+              email: user.email,
+              role: 'student', // Default role, will be updated if user document exists
+            );
+            
+            // Cache the result
+            _userDocumentCache[user.uid] = userData;
+            
+            print('User document found/created successfully for user: ${user.uid}');
+            return userData;
+          } catch (e) {
+            print('Error ensuring user document exists: $e');
+            
+            // Return a default user document with offline fallback
+            print('Using offline fallback for user: ${user.uid}');
+            
+            // Determine if this might be an admin
+            bool isAdmin = false;
+            if (user.email != null) {
+              isAdmin = user.email == 'admin@campus.com' || user.email!.endsWith('@admin.campus.com');
+            }
+            
+            final defaultData = {
+              'email': user.email ?? 'unknown@example.com',
+              'role': isAdmin ? 'admin' : 'student',
+              'wallet_balance': 0.0,
+              'name': isAdmin ? 'Admin' : (user.email?.split('@')[0] ?? 'User'),
+              'is_active': true,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+              'offline_mode': true,
+            };
+            
+            // Cache the default data
+            _userDocumentCache[user.uid] = defaultData;
+            return defaultData;
+          }
         }
-      }
-    }
-    
-    // If all retries failed, return a default user document
-    print('All retry attempts failed, returning default user document for: ${user.uid}');
-    return {
-      'email': user.email ?? 'unknown@example.com',
-      'role': 'student',
-      'wallet_balance': 0.0,
-      'created_at': FieldValue.serverTimestamp(),
-      'updated_at': FieldValue.serverTimestamp(),
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +235,25 @@ class _AuthWrapperState extends State<AuthWrapper> {
                       });
                   
                   if (role == 'vendor') {
-                    return const DashboardScreen();
+                    // Check if vendor is approved
+                    return FutureBuilder<bool>(
+                      future: AuthService().isVendor(),
+                      builder: (context, vendorSnapshot) {
+                        if (vendorSnapshot.connectionState == ConnectionState.done) {
+                          if (vendorSnapshot.data == true) {
+                            return const DashboardScreen();
+                          } else {
+                            // Vendor not approved, show status screen
+                            return const VendorStatusScreen();
+                          }
+                        }
+                        return const Scaffold(
+                          body: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      },
+                    );
                   } else if (role == 'admin') {
                     return const AdminDashboardScreen();
                   } else {

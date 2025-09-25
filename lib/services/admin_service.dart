@@ -1,356 +1,445 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/admin_model.dart';
-import '../models/user_model.dart';
-import '../models/vendor_model.dart';
+import '../models/vendor_approval_model.dart';
 
 class AdminService {
-  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
-  // Collection references
-  final CollectionReference _adminsCollection = 
-      FirebaseFirestore.instance.collection('admins');
-  final CollectionReference _usersCollection = 
-      FirebaseFirestore.instance.collection('users');
-  final CollectionReference _vendorsCollection = 
-      FirebaseFirestore.instance.collection('vendors');
-  final CollectionReference _ordersCollection = 
-      FirebaseFirestore.instance.collection('orders');
-  final CollectionReference _walletTransactionsCollection = 
-      FirebaseFirestore.instance.collection('wallet_transactions');
-  
-  // Check if user is admin
-  Future<bool> isUserAdmin(String userId) async {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Check if current user is admin
+  Future<bool> isCurrentUserAdmin() async {
     try {
-      QuerySnapshot querySnapshot = await _adminsCollection
-          .where('user_id', isEqualTo: userId)
-          .where('is_active', isEqualTo: true)
-          .limit(1)
+      final user = _auth.currentUser;
+      if (user == null) return false;
+
+      final adminDoc = await _firestore
+          .collection('admins')
+          .doc(user.uid)
           .get();
-      
-      return querySnapshot.docs.isNotEmpty;
+
+      return adminDoc.exists && adminDoc.data()?['is_active'] == true;
     } catch (e) {
       if (kDebugMode) {
-        print('Error checking if user is admin: $e');
+        print('Error checking admin status: $e');
       }
-      throw Exception('Failed to check if user is admin: $e');
+      return false;
     }
   }
+
+  // Cache for admin data
+  AdminModel? _cachedAdmin;
+  DateTime? _lastCacheTime;
+  static const Duration _cacheExpiry = Duration(minutes: 5);
   
-  // Get admin by user ID
-  Future<AdminModel?> getAdminByUserId(String userId) async {
+  // Clear admin cache
+  void clearCache() {
+    _cachedAdmin = null;
+    _lastCacheTime = null;
+    print('Admin cache cleared');
+  }
+
+  // Get current admin user with caching and offline fallback
+  Future<AdminModel?> getCurrentAdmin() async {
     try {
-      QuerySnapshot querySnapshot = await _adminsCollection
-          .where('user_id', isEqualTo: userId)
-          .limit(1)
-          .get();
-      
-      if (querySnapshot.docs.isEmpty) {
+      final user = _auth.currentUser;
+      if (user == null) {
         return null;
       }
-      
-      return AdminModel.fromFirestore(querySnapshot.docs.first);
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting admin by user ID: $e');
+
+      // Check cache first
+      if (_cachedAdmin != null && 
+          _lastCacheTime != null && 
+          DateTime.now().difference(_lastCacheTime!) < _cacheExpiry) {
+        print('getCurrentAdmin: Returning cached admin data');
+        return _cachedAdmin;
       }
-      throw Exception('Failed to get admin by user ID: $e');
+
+      print('getCurrentAdmin: Fetching fresh admin data for UID: ${user.uid}');
+      
+      try {
+        // Try to get admin document with timeout
+        final adminDoc = await _firestore
+            .collection('admins')
+            .doc(user.uid)
+            .get()
+            .timeout(
+              const Duration(seconds: 3),
+              onTimeout: () {
+                throw TimeoutException('Admin fetch timeout', const Duration(seconds: 3));
+              },
+            );
+
+        if (adminDoc.exists) {
+          _cachedAdmin = AdminModel.fromFirestore(adminDoc);
+          _lastCacheTime = DateTime.now();
+          print('getCurrentAdmin: Admin data cached successfully');
+          return _cachedAdmin;
+        }
+        
+        print('getCurrentAdmin: Admin document does not exist, creating it...');
+        // Admin document doesn't exist, create it
+        final adminModel = AdminModel(
+          id: user.uid,
+          email: user.email ?? 'admin@campus.com',
+          name: 'Campus Admin',
+          role: 'super_admin',
+          permissions: [
+            'manage_users',
+            'manage_vendors',
+            'manage_orders',
+            'manage_payments',
+            'view_analytics',
+            'manage_admins',
+            'approve_vendors',
+          ],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          isActive: true,
+        );
+        
+        // Try to save to Firestore with timeout
+        await _firestore
+            .collection('admins')
+            .doc(user.uid)
+            .set(adminModel.toFirestore())
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () {
+                print('getCurrentAdmin: Firestore save timeout, using cached data');
+              },
+            );
+        
+        _cachedAdmin = adminModel;
+        _lastCacheTime = DateTime.now();
+        print('getCurrentAdmin: Admin document created and cached successfully');
+        return adminModel;
+      } catch (e) {
+        print('getCurrentAdmin: Firestore unavailable, using offline fallback: $e');
+        
+        // Firestore is unavailable, create offline admin model
+        final adminModel = AdminModel(
+          id: user.uid,
+          email: user.email ?? 'admin@campus.com',
+          name: 'Campus Admin',
+          role: 'super_admin',
+          permissions: [
+            'manage_users',
+            'manage_vendors',
+            'manage_orders',
+            'manage_payments',
+            'view_analytics',
+            'manage_admins',
+            'approve_vendors',
+          ],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          isActive: true,
+        );
+        
+        _cachedAdmin = adminModel;
+        _lastCacheTime = DateTime.now();
+        print('getCurrentAdmin: Offline admin data cached successfully');
+        return adminModel;
+      }
+    } catch (e) {
+      print('Error getting current admin: $e');
+      return null;
     }
   }
-  
-  // Create a new admin
-  Future<String> createAdmin(AdminModel admin) async {
+
+  // Create super admin (one-time setup)
+  Future<bool> createSuperAdmin({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
     try {
-      DocumentReference docRef = await _adminsCollection.add(admin.toMap());
-      return docRef.id;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error creating admin: $e');
-      }
-      throw Exception('Failed to create admin: $e');
-    }
-  }
-  
-  // Update admin
-  Future<void> updateAdmin(AdminModel admin) async {
-    try {
-      await _adminsCollection.doc(admin.id).update(admin.toMap());
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error updating admin: $e');
-      }
-      throw Exception('Failed to update admin: $e');
-    }
-  }
-  
-  // Update admin last login
-  Future<void> updateAdminLastLogin(String adminId) async {
-    try {
-      DocumentSnapshot doc = await _adminsCollection.doc(adminId).get();
-      
-      if (!doc.exists) {
-        throw Exception('Admin not found');
-      }
-      
-      AdminModel admin = AdminModel.fromFirestore(doc);
-      AdminModel updatedAdmin = admin.updateLastLogin();
-      
-      await updateAdmin(updatedAdmin);
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error updating admin last login: $e');
-      }
-      throw Exception('Failed to update admin last login: $e');
-    }
-  }
-  
-  // Get all users
-  Future<List<UserModel>> getAllUsers() async {
-    try {
-      QuerySnapshot querySnapshot = await _usersCollection.get();
-      
-      return querySnapshot.docs
-          .map((doc) => UserModel.fromFirestore(doc))
-          .toList();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting all users: $e');
-      }
-      throw Exception('Failed to get all users: $e');
-    }
-  }
-  
-  // Get users by role
-  Future<List<UserModel>> getUsersByRole(String role) async {
-    try {
-      QuerySnapshot querySnapshot = await _usersCollection
-          .where('role', isEqualTo: role)
+      // Check if super admin already exists
+      final existingAdmins = await _firestore
+          .collection('admins')
+          .where('role', isEqualTo: 'super_admin')
           .get();
-      
-      return querySnapshot.docs
-          .map((doc) => UserModel.fromFirestore(doc))
-          .toList();
+
+      if (existingAdmins.docs.isNotEmpty) {
+        if (kDebugMode) {
+          print('Super admin already exists');
+        }
+        return false;
+      }
+
+      // Create Firebase user
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final userId = userCredential.user!.uid;
+
+      // Create admin document
+      final adminData = AdminModel(
+        id: userId,
+        email: email,
+        name: name,
+        role: 'super_admin',
+        permissions: [
+          'manage_users',
+          'manage_vendors',
+          'manage_orders',
+          'manage_payments',
+          'view_analytics',
+          'manage_admins',
+          'approve_vendors',
+        ],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isActive: true,
+      );
+
+      await _firestore
+          .collection('admins')
+          .doc(userId)
+          .set(adminData.toFirestore());
+
+      if (kDebugMode) {
+        print('Super admin created successfully');
+      }
+      return true;
     } catch (e) {
       if (kDebugMode) {
-        print('Error getting users by role: $e');
+        print('Error creating super admin: $e');
       }
-      throw Exception('Failed to get users by role: $e');
+      return false;
     }
   }
-  
-  // Get pending vendor approvals
-  Future<List<VendorModel>> getPendingVendorApprovals() async {
-    try {
-      // This assumes there's a 'status' field in the vendor model
-      // You might need to adjust based on your actual implementation
-      QuerySnapshot querySnapshot = await _vendorsCollection
-          .where('status', isEqualTo: 'pending')
-          .get();
-      
-      return querySnapshot.docs
-          .map((doc) => VendorModel.fromFirestore(doc))
+
+  // Get all pending vendor approvals
+  Stream<List<VendorApprovalModel>> getPendingVendorApprovals() {
+    return _firestore
+        .collection('vendor_approvals')
+        .where('status', isEqualTo: 'pending')
+        .orderBy('submitted_at', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => VendorApprovalModel.fromFirestore(doc))
           .toList();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting pending vendor approvals: $e');
-      }
-      throw Exception('Failed to get pending vendor approvals: $e');
-    }
+    });
   }
-  
+
+  // Get all vendor approvals
+  Stream<List<VendorApprovalModel>> getAllVendorApprovals() {
+    return _firestore
+        .collection('vendor_approvals')
+        .orderBy('submitted_at', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => VendorApprovalModel.fromFirestore(doc))
+          .toList();
+    });
+  }
+
   // Approve vendor
-  Future<void> approveVendor(String vendorId) async {
+  Future<bool> approveVendor(String approvalId, String adminId) async {
     try {
-      await _vendorsCollection.doc(vendorId).update({
+      print('AdminService.approveVendor called with approvalId: $approvalId, adminId: $adminId');
+      
+      final approvalDoc = await _firestore
+          .collection('vendor_approvals')
+          .doc(approvalId)
+          .get();
+
+      print('Approval document exists: ${approvalDoc.exists}');
+      if (!approvalDoc.exists) {
+        print('Approval document not found');
+        return false;
+      }
+
+      final approval = VendorApprovalModel.fromFirestore(approvalDoc);
+      final vendorId = approval.vendorId;
+      print('Vendor ID from approval: $vendorId');
+
+      // Update approval status
+      print('Updating vendor_approvals document...');
+      await _firestore
+          .collection('vendor_approvals')
+          .doc(approvalId)
+          .update({
         'status': 'approved',
+        'approved_by': adminId,
+        'reviewed_at': FieldValue.serverTimestamp(),
       });
+
+      // Update vendor document to mark as approved
+      print('Updating vendors document...');
+      await _firestore
+          .collection('vendors')
+          .doc(vendorId)
+          .update({
+        'is_approved': true,
+        'approval_status': 'approved',
+        'approved_at': FieldValue.serverTimestamp(),
+        'approved_by': adminId,
+      });
+
+      print('Vendor approved successfully: $vendorId');
+      return true;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error approving vendor: $e');
-      }
-      throw Exception('Failed to approve vendor: $e');
+      print('Error approving vendor: $e');
+      return false;
     }
   }
-  
+
   // Reject vendor
-  Future<void> rejectVendor(String vendorId) async {
+  Future<bool> rejectVendor(String approvalId, String adminId, String reason) async {
     try {
-      await _vendorsCollection.doc(vendorId).update({
+      print('AdminService.rejectVendor called with approvalId: $approvalId, adminId: $adminId, reason: $reason');
+      
+      final approvalDoc = await _firestore
+          .collection('vendor_approvals')
+          .doc(approvalId)
+          .get();
+
+      print('Approval document exists: ${approvalDoc.exists}');
+      if (!approvalDoc.exists) {
+        print('Approval document not found');
+        return false;
+      }
+
+      final approval = VendorApprovalModel.fromFirestore(approvalDoc);
+      final vendorId = approval.vendorId;
+      print('Vendor ID from approval: $vendorId');
+
+      // Update approval status
+      print('Updating vendor_approvals document...');
+      await _firestore
+          .collection('vendor_approvals')
+          .doc(approvalId)
+          .update({
         'status': 'rejected',
+        'approved_by': adminId,
+        'rejection_reason': reason,
+        'reviewed_at': FieldValue.serverTimestamp(),
       });
+
+      // Update vendor document to mark as rejected
+      print('Updating vendors document...');
+      await _firestore
+          .collection('vendors')
+          .doc(vendorId)
+          .update({
+        'is_approved': false,
+        'approval_status': 'rejected',
+        'rejection_reason': reason,
+        'rejected_at': FieldValue.serverTimestamp(),
+        'rejected_by': adminId,
+      });
+
+      print('Vendor rejected: $vendorId');
+      return true;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error rejecting vendor: $e');
-      }
-      throw Exception('Failed to reject vendor: $e');
+      print('Error rejecting vendor: $e');
+      return false;
     }
   }
-  
-  // Get transaction statistics
-  Future<Map<String, dynamic>> getTransactionStatistics() async {
+
+  // Get all users
+  Stream<List<Map<String, dynamic>>> getAllUsers() {
+    return _firestore
+        .collection('users')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    });
+  }
+
+  // Get all vendors
+  Stream<List<Map<String, dynamic>>> getAllVendors() {
+    return _firestore
+        .collection('vendors')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    });
+  }
+
+  // Delete user account
+  Future<bool> deleteUser(String userId) async {
     try {
-      QuerySnapshot querySnapshot = await _walletTransactionsCollection.get();
+      // Delete user document
+      await _firestore.collection('users').doc(userId).delete();
       
-      double totalTransactions = 0;
-      double totalTopups = 0;
-      double totalPayments = 0;
-      double totalRefunds = 0;
+      // Delete vendor document if exists
+      await _firestore.collection('vendors').doc(userId).delete();
       
-      for (var doc in querySnapshot.docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        double amount = (data['amount'] ?? 0.0).toDouble();
-        String type = data['type'] ?? '';
-        
-        totalTransactions += amount;
-        
-        if (type == 'topup') {
-          totalTopups += amount;
-        } else if (type == 'payment') {
-          totalPayments += amount;
-        } else if (type == 'refund') {
-          totalRefunds += amount;
-        }
+      // Delete vendor approval if exists
+      final approvalQuery = await _firestore
+          .collection('vendor_approvals')
+          .where('vendor_id', isEqualTo: userId)
+          .get();
+      
+      for (var doc in approvalQuery.docs) {
+        await doc.reference.delete();
       }
-      
-      return {
-        'total_transactions': totalTransactions,
-        'total_topups': totalTopups,
-        'total_payments': totalPayments,
-        'total_refunds': totalRefunds,
-        'transaction_count': querySnapshot.docs.length,
-      };
+
+      if (kDebugMode) {
+        print('User deleted successfully: $userId');
+      }
+      return true;
     } catch (e) {
       if (kDebugMode) {
-        print('Error getting transaction statistics: $e');
+        print('Error deleting user: $e');
       }
-      throw Exception('Failed to get transaction statistics: $e');
+      return false;
     }
   }
-  
-  // Get order statistics
-  Future<Map<String, dynamic>> getOrderStatistics() async {
-    try {
-      QuerySnapshot querySnapshot = await _ordersCollection.get();
-      
-      int totalOrders = querySnapshot.docs.length;
-      int completedOrders = 0;
-      int cancelledOrders = 0;
-      double totalSales = 0;
-      
-      for (var doc in querySnapshot.docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        String status = data['status'] ?? '';
-        double total = (data['total'] ?? 0.0).toDouble();
-        
-        if (status == 'completed') {
-          completedOrders++;
-          totalSales += total;
-        } else if (status == 'cancelled' || status == 'rejected') {
-          cancelledOrders++;
-        }
-      }
-      
-      return {
-        'total_orders': totalOrders,
-        'completed_orders': completedOrders,
-        'cancelled_orders': cancelledOrders,
-        'total_sales': totalSales,
-        'completion_rate': totalOrders > 0 ? completedOrders / totalOrders : 0,
-      };
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting order statistics: $e');
-      }
-      throw Exception('Failed to get order statistics: $e');
-    }
-  }
-  
-  // Get vendor statistics
-  Future<Map<String, dynamic>> getVendorStatistics() async {
-    try {
-      QuerySnapshot vendorSnapshot = await _vendorsCollection.get();
-      
-      int totalVendors = vendorSnapshot.docs.length;
-      int activeVendors = 0;
-      
-      for (var doc in vendorSnapshot.docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        bool isOpen = data['is_open'] ?? false;
-        
-        if (isOpen) {
-          activeVendors++;
-        }
-      }
-      
-      return {
-        'total_vendors': totalVendors,
-        'active_vendors': activeVendors,
-        'inactive_vendors': totalVendors - activeVendors,
-      };
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting vendor statistics: $e');
-      }
-      throw Exception('Failed to get vendor statistics: $e');
-    }
-  }
-  
-  // Get user statistics
-  Future<Map<String, dynamic>> getUserStatistics() async {
-    try {
-      QuerySnapshot userSnapshot = await _usersCollection.get();
-      
-      int totalUsers = userSnapshot.docs.length;
-      int students = 0;
-      int staff = 0;
-      int vendors = 0;
-      
-      for (var doc in userSnapshot.docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        String role = data['role'] ?? '';
-        
-        if (role == 'student') {
-          students++;
-        } else if (role == 'staff') {
-          staff++;
-        } else if (role == 'vendor') {
-          vendors++;
-        }
-      }
-      
-      return {
-        'total_users': totalUsers,
-        'students': students,
-        'staff': staff,
-        'vendors': vendors,
-      };
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting user statistics: $e');
-      }
-      throw Exception('Failed to get user statistics: $e');
-    }
-  }
-  
-  // Get dashboard statistics (combined)
+
+  // Get dashboard statistics (alias for getDashboardStats)
   Future<Map<String, dynamic>> getDashboardStatistics() async {
+    return getDashboardStats();
+  }
+
+  // Get admin dashboard statistics
+  Future<Map<String, dynamic>> getDashboardStats() async {
     try {
-      Map<String, dynamic> transactionStats = await getTransactionStatistics();
-      Map<String, dynamic> orderStats = await getOrderStatistics();
-      Map<String, dynamic> vendorStats = await getVendorStatistics();
-      Map<String, dynamic> userStats = await getUserStatistics();
-      
+      final usersCount = await _firestore.collection('users').count().get();
+      final vendorsCount = await _firestore.collection('vendors').count().get();
+      final pendingApprovalsCount = await _firestore
+          .collection('vendor_approvals')
+          .where('status', isEqualTo: 'pending')
+          .count()
+          .get();
+      final ordersCount = await _firestore.collection('orders').count().get();
+
       return {
-        'transactions': transactionStats,
-        'orders': orderStats,
-        'vendors': vendorStats,
-        'users': userStats,
+        'total_users': usersCount.count,
+        'total_vendors': vendorsCount.count,
+        'pending_approvals': pendingApprovalsCount.count,
+        'total_orders': ordersCount.count,
       };
     } catch (e) {
       if (kDebugMode) {
-        print('Error getting dashboard statistics: $e');
+        print('Error getting dashboard stats: $e');
       }
-      throw Exception('Failed to get dashboard statistics: $e');
+      return {
+        'total_users': 0,
+        'total_vendors': 0,
+        'pending_approvals': 0,
+        'total_orders': 0,
+      };
     }
   }
 }

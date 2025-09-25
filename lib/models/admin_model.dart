@@ -1,159 +1,72 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum AdminRole {
-  superAdmin,
-  vendorManager,
-  financeManager,
-  supportManager
-}
-
 class AdminModel {
   final String id;
-  final String userId; // Reference to user ID
-  final String name;
   final String email;
-  final AdminRole role;
-  final List<String> permissions; // Specific permissions
+  final String name;
+  final String role; // 'super_admin', 'admin'
+  final List<String> permissions;
   final DateTime createdAt;
-  final DateTime lastLogin;
+  final DateTime updatedAt;
   final bool isActive;
-  
+
   AdminModel({
     required this.id,
-    required this.userId,
-    required this.name,
     required this.email,
+    required this.name,
     required this.role,
     required this.permissions,
     required this.createdAt,
-    required this.lastLogin,
-    required this.isActive,
+    required this.updatedAt,
+    this.isActive = true,
   });
-  
+
   factory AdminModel.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
     return AdminModel(
       id: doc.id,
-      userId: data['user_id'] ?? '',
-      name: data['name'] ?? '',
       email: data['email'] ?? '',
-      role: AdminRole.values.firstWhere(
-        (e) => e.toString() == 'AdminRole.${data['role'] ?? 'supportManager'}',
-        orElse: () => AdminRole.supportManager,
-      ),
-      permissions: data['permissions'] != null 
-          ? List<String>.from(data['permissions']) 
-          : [],
+      name: data['name'] ?? '',
+      role: data['role'] ?? 'admin',
+      permissions: List<String>.from(data['permissions'] ?? []),
       createdAt: (data['created_at'] as Timestamp).toDate(),
-      lastLogin: (data['last_login'] as Timestamp).toDate(),
-      isActive: data['is_active'] ?? false,
+      updatedAt: (data['updated_at'] as Timestamp).toDate(),
+      isActive: data['is_active'] ?? true,
     );
   }
-  
-  Map<String, dynamic> toMap() {
+
+  Map<String, dynamic> toFirestore() {
     return {
-      'user_id': userId,
-      'name': name,
       'email': email,
-      'role': role.toString().split('.').last,
+      'name': name,
+      'role': role,
       'permissions': permissions,
       'created_at': Timestamp.fromDate(createdAt),
-      'last_login': Timestamp.fromDate(lastLogin),
+      'updated_at': Timestamp.fromDate(updatedAt),
       'is_active': isActive,
     };
   }
-  
-  // Check if admin has a specific permission
-  bool hasPermission(String permission) {
-    return permissions.contains(permission);
-  }
-  
-  // Update last login time
-  AdminModel updateLastLogin() {
+
+  AdminModel copyWith({
+    String? id,
+    String? email,
+    String? name,
+    String? role,
+    List<String>? permissions,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isActive,
+  }) {
     return AdminModel(
-      id: id,
-      userId: userId,
-      name: name,
-      email: email,
-      role: role,
-      permissions: permissions,
-      createdAt: createdAt,
-      lastLogin: DateTime.now(),
-      isActive: isActive,
-    );
-  }
-  
-  // Add a permission
-  AdminModel addPermission(String permission) {
-    if (permissions.contains(permission)) {
-      return this;
-    }
-    
-    List<String> updatedPermissions = List.from(permissions);
-    updatedPermissions.add(permission);
-    
-    return AdminModel(
-      id: id,
-      userId: userId,
-      name: name,
-      email: email,
-      role: role,
-      permissions: updatedPermissions,
-      createdAt: createdAt,
-      lastLogin: lastLogin,
-      isActive: isActive,
-    );
-  }
-  
-  // Remove a permission
-  AdminModel removePermission(String permission) {
-    if (!permissions.contains(permission)) {
-      return this;
-    }
-    
-    List<String> updatedPermissions = List.from(permissions);
-    updatedPermissions.remove(permission);
-    
-    return AdminModel(
-      id: id,
-      userId: userId,
-      name: name,
-      email: email,
-      role: role,
-      permissions: updatedPermissions,
-      createdAt: createdAt,
-      lastLogin: lastLogin,
-      isActive: isActive,
-    );
-  }
-  
-  // Change admin role
-  AdminModel changeRole(AdminRole newRole) {
-    return AdminModel(
-      id: id,
-      userId: userId,
-      name: name,
-      email: email,
-      role: newRole,
-      permissions: permissions,
-      createdAt: createdAt,
-      lastLogin: lastLogin,
-      isActive: isActive,
-    );
-  }
-  
-  // Toggle active status
-  AdminModel toggleActive() {
-    return AdminModel(
-      id: id,
-      userId: userId,
-      name: name,
-      email: email,
-      role: role,
-      permissions: permissions,
-      createdAt: createdAt,
-      lastLogin: lastLogin,
-      isActive: !isActive,
+      id: id ?? this.id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      permissions: permissions ?? this.permissions,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isActive: isActive ?? this.isActive,
     );
   }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:campus_food_app/screens/admin/dashboard_screen.dart';
-import 'package:campus_food_app/screens/admin/vendor_management_screen.dart';
-import 'package:campus_food_app/screens/admin/pickup_slot_management_screen.dart';
-import 'package:campus_food_app/screens/admin/analytics_screen.dart';
+import 'package:campus_food_app/screens/admin/admin_dashboard_screen.dart';
+import 'package:campus_food_app/screens/admin/vendor_approval_management_screen.dart';
+import 'package:campus_food_app/screens/admin/user_management_screen.dart';
+import 'package:campus_food_app/screens/admin/super_admin_setup_screen.dart';
+import 'package:campus_food_app/screens/vendor/vendor_approval_screen.dart';
+import 'package:campus_food_app/screens/vendor/vendor_status_screen.dart';
 import 'package:campus_food_app/screens/auth/login_screen.dart';
 import 'package:campus_food_app/screens/student/home_screen.dart';
 import 'package:campus_food_app/screens/student/profile_screen.dart';
@@ -24,9 +26,11 @@ class AppRoutes {
   static const String studentWallet = '/student/wallet';
   static const String vendorDashboard = '/vendor/dashboard';
   static const String adminDashboard = '/admin/dashboard';
-  static const String adminVendors = '/admin/vendors';
-  static const String adminPickupSlots = '/admin/pickup-slots';
-  static const String adminAnalytics = '/admin/analytics';
+  static const String adminVendorApprovals = '/admin/vendor-approvals';
+  static const String adminUserManagement = '/admin/user-management';
+  static const String superAdminSetup = '/admin/super-admin-setup';
+  static const String vendorApproval = '/vendor/approval';
+  static const String vendorStatus = '/vendor/status';
 
   static Map<String, WidgetBuilder> getRoutes() {
     return {
@@ -40,9 +44,11 @@ class AppRoutes {
     studentWallet: (context) => const WalletScreen(),
       vendorDashboard: (context) => const DashboardScreen(),
       adminDashboard: (context) => const AdminDashboardScreen(),
-      adminVendors: (context) => const VendorManagementScreen(),
-      adminPickupSlots: (context) => const PickupSlotManagementScreen(),
-      adminAnalytics: (context) => const AnalyticsScreen(),
+      adminVendorApprovals: (context) => const VendorApprovalManagementScreen(),
+      adminUserManagement: (context) => const UserManagementScreen(),
+      superAdminSetup: (context) => const SuperAdminSetupScreen(),
+      vendorApproval: (context) => const VendorApprovalScreen(),
+      vendorStatus: (context) => const VendorStatusScreen(),
     };
   }
 }

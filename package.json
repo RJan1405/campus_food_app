@@ -1,0 +1,29 @@
+{
+  "name": "emailjs-proxy",
+  "version": "1.0.0",
+  "description": "Proxy service for EmailJS to work with mobile apps",
+  "main": "emailjs-proxy.js",
+  "scripts": {
+    "start": "node emailjs-proxy.js",
+    "dev": "nodemon emailjs-proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "emailjs",
+    "proxy",
+    "mobile",
+    "email"
+  ],
+  "author": "Campus Food App",
+  "license": "MIT"
+}

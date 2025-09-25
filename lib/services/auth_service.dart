@@ -78,6 +78,96 @@ class AuthService {
     }
   }
 
+  // Sign up with complete details (for OTP verification flow)
+  Future<User?> signUpWithDetails({
+    required String email,
+    required String password,
+    required String role,
+    required String name,
+    required String phoneNumber,
+    required String campusId,
+  }) async {
+    try {
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      // Create a user document in Firestore with complete details
+      print('Creating user document with role: $role for user: ${userCredential.user!.uid}');
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'email': email,
+        'role': role,
+        'name': name,
+        'phone_number': phoneNumber,
+        'campus_id': campusId,
+        'wallet_balance': 0.0,
+        'email_verified': true, // Mark as verified since OTP was verified
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      print('User document created successfully with role: $role');
+      
+      // If user is registering as a vendor, create a vendor document
+      if (role == 'vendor') {
+        await _createVendorDocument(userCredential.user!.uid, email, name, phoneNumber);
+      }
+      
+      return userCredential.user;
+    } catch (e) {
+      print('SignUp Error: $e');
+      
+      // Handle specific Firebase Auth errors
+      if (e is FirebaseAuthException) {
+        switch (e.code) {
+          case 'email-already-in-use':
+            throw Exception('This email is already registered. Please use a different email or try logging in.');
+          case 'weak-password':
+            throw Exception('Password is too weak. Please choose a stronger password.');
+          case 'invalid-email':
+            throw Exception('Please enter a valid email address.');
+          case 'operation-not-allowed':
+            throw Exception('Email/Password authentication is not enabled. Please contact support.');
+          default:
+            throw Exception('Sign up failed: ${e.message}');
+        }
+      }
+      
+      // Handle other errors
+      if (e.toString().contains('CONFIGURATION_NOT_FOUND')) {
+        throw Exception('Firebase Authentication is not configured. Please contact support.');
+      }
+      
+      // Handle Firebase type casting issues (known Firebase package bug)
+      if (e.toString().contains('type \'List<Object?>\' is not a subtype of type \'PigeonUserDetails?\'')) {
+        print('Firebase type casting warning (non-critical): $e');
+        // Authentication still works despite this warning, but we need to return the user
+        // Try to get the current user from Firebase Auth
+        final currentUser = _auth.currentUser;
+        if (currentUser != null) {
+          print('Recovered user from Firebase Auth after type casting error: ${currentUser.uid}');
+          // Still create the user document
+          await _firestore.collection('users').doc(currentUser.uid).set({
+            'email': email,
+            'role': role,
+            'name': name,
+            'phone_number': phoneNumber,
+            'campus_id': campusId,
+            'wallet_balance': 0.0,
+            'email_verified': true,
+            'created_at': FieldValue.serverTimestamp(),
+            'updated_at': FieldValue.serverTimestamp(),
+          });
+          print('User document created successfully with role: $role after recovery');
+          return currentUser;
+        }
+        return null;
+      }
+      
+      throw Exception('Sign up failed. Please try again.');
+    }
+  }
+
   // Sign in with email and password
   Future<User?> signIn(String email, String password) async {
     try {
@@ -144,6 +234,8 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
+    clearCache(); // Clear cache on logout
+    print('User signed out successfully');
   }
 
   // Clear all auth state (useful for debugging)
@@ -160,40 +252,118 @@ class AuthService {
     return _auth.currentUser;
   }
 
-  // Ensure user document exists in Firestore
+  // Cache for user documents
+  static final Map<String, Map<String, dynamic>> _userDocumentCache = {};
+  
+  // Clear cache (useful for logout)
+  static void clearCache() {
+    _userDocumentCache.clear();
+    print('User document cache cleared');
+  }
+  
+  // Ensure user document exists in Firestore with caching and robust fallback
   Future<Map<String, dynamic>> ensureUserDocument(String uid, {String? email, String? role}) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
+      // Check cache first
+      if (_userDocumentCache.containsKey(uid)) {
+        print('User document found in cache for: $uid');
+        return _userDocumentCache[uid]!;
+      }
       
-      if (doc.exists) {
-        print('User document found for: $uid');
-        return doc.data()!;
-      } else {
-        // Create user document if it doesn't exist
-        print('Creating missing user document for: $uid');
-        final userData = {
-          'email': email ?? 'unknown@example.com',
-          'role': role ?? 'student',
-          'wallet_balance': 0.0,
-          'created_at': FieldValue.serverTimestamp(),
-          'updated_at': FieldValue.serverTimestamp(),
-        };
+      // Try to check Firestore with timeout and retry logic
+      try {
+        // First check if user is an admin with timeout
+        final adminDoc = await _firestore.collection('admins').doc(uid).get().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () {
+            throw TimeoutException('Firestore admin check timeout', const Duration(seconds: 3));
+          },
+        );
         
-        await _firestore.collection('users').doc(uid).set(userData);
-        print('User document created successfully for: $uid with role: ${role ?? 'student'}');
-        return userData;
+        if (adminDoc.exists) {
+          print('Admin document found for: $uid');
+          final adminData = adminDoc.data()!;
+          final userData = {
+            'email': adminData['email'] ?? email ?? 'unknown@example.com',
+            'role': 'admin',
+            'name': adminData['name'] ?? 'Admin',
+            'is_active': adminData['is_active'] ?? true,
+            'created_at': adminData['created_at'],
+            'updated_at': adminData['updated_at'],
+          };
+          _userDocumentCache[uid] = userData;
+          return userData;
+        }
+        
+        // Check regular users collection with timeout
+        final doc = await _firestore.collection('users').doc(uid).get().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () {
+            throw TimeoutException('Firestore user check timeout', const Duration(seconds: 3));
+          },
+        );
+        
+        if (doc.exists) {
+          print('User document found for: $uid');
+          final userData = doc.data()!;
+          _userDocumentCache[uid] = userData;
+          return userData;
+        } else {
+          // Create user document if it doesn't exist
+          print('Creating missing user document for: $uid');
+          final userData = {
+            'email': email ?? 'unknown@example.com',
+            'role': role ?? 'student',
+            'wallet_balance': 0.0,
+            'created_at': FieldValue.serverTimestamp(),
+            'updated_at': FieldValue.serverTimestamp(),
+          };
+          
+          await _firestore.collection('users').doc(uid).set(userData).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              print('Firestore create timeout, using local data');
+            },
+          );
+          print('User document created successfully for: $uid with role: ${role ?? 'student'}');
+          _userDocumentCache[uid] = userData;
+          return userData;
+        }
+      } catch (e) {
+        print('Firestore unavailable, using offline fallback: $e');
+        // Firestore is unavailable, use offline fallback
+        return await _getOfflineUserDocument(uid, email: email, role: role);
       }
     } catch (e) {
       print('Error ensuring user document: $e');
-      // Return a default user document even if there's an error
-      return {
-        'email': email ?? 'unknown@example.com',
-        'role': role ?? 'student',
-        'wallet_balance': 0.0,
-        'created_at': FieldValue.serverTimestamp(),
-        'updated_at': FieldValue.serverTimestamp(),
-      };
+      // Return offline fallback even if there's an error
+      return await _getOfflineUserDocument(uid, email: email, role: role);
     }
+  }
+  
+  // Get user document from offline/local storage
+  Future<Map<String, dynamic>> _getOfflineUserDocument(String uid, {String? email, String? role}) async {
+    print('Using offline user document for: $uid');
+    
+    // Try to determine if this might be an admin based on email
+    bool isAdmin = false;
+    if (email != null) {
+      isAdmin = email == 'admin@campus.com' || email.endsWith('@admin.campus.com');
+    }
+    
+    final userData = {
+      'email': email ?? 'unknown@example.com',
+      'role': isAdmin ? 'admin' : (role ?? 'student'),
+      'wallet_balance': 0.0,
+      'name': isAdmin ? 'Admin' : (email?.split('@')[0] ?? 'User'),
+      'is_active': true,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+      'offline_mode': true, // Flag to indicate this is offline data
+    };
+    
+    _userDocumentCache[uid] = userData;
+    return userData;
   }
   
   // Get user data from Firestore
@@ -309,7 +479,7 @@ class AuthService {
   }
 
   // Create a vendor document in the vendors collection
-  Future<void> _createVendorDocument(String userId, String email, [String? name]) async {
+  Future<void> _createVendorDocument(String userId, String email, [String? name, String? phoneNumber]) async {
     try {
       // Extract vendor name from email if not provided
       String vendorName = name ?? email.split('@')[0].replaceAll('.', ' ').split(' ').map((word) => 
@@ -320,12 +490,15 @@ class AuthService {
         'name': vendorName,
         'description': 'Welcome to $vendorName! We serve delicious food.',
         'location': 'Campus Food Court',
+        'phone_number': phoneNumber ?? 'Not provided',
         'owner_id': userId,
         'is_open': true,
         'food_types': ['Fast Food', 'Beverages'],
         'image_url': null,
         'rating': 0.0,
         'total_ratings': 0,
+        'is_approved': false, // New vendors need approval
+        'approval_status': 'pending', // Pending approval by default
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       });
@@ -352,6 +525,8 @@ class AuthService {
         'total_ratings': 0,
         'phone_number': phone,
         'campus_id': campusId,
+        'is_approved': false, // New vendors need approval
+        'approval_status': 'pending', // Pending approval by default
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       });
@@ -360,6 +535,92 @@ class AuthService {
     } catch (e) {
       print('Error creating vendor document: $e');
       throw Exception('Failed to create vendor profile: $e');
+    }
+  }
+
+  // Check if user is vendor (and approved)
+  Future<bool> isVendor() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+
+      final vendorDoc = await _firestore
+          .collection('vendors')
+          .doc(user.uid)
+          .get();
+
+      if (!vendorDoc.exists) return false;
+
+      // Check if vendor is approved
+      final vendorData = vendorDoc.data()!;
+      return vendorData['is_approved'] == true;
+    } catch (e) {
+      print('Error checking vendor status: $e');
+      return false;
+    }
+  }
+
+  // Get vendor approval status
+  Future<String> getVendorApprovalStatus() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 'not_vendor';
+
+      final vendorDoc = await _firestore
+          .collection('vendors')
+          .doc(user.uid)
+          .get();
+
+      if (!vendorDoc.exists) return 'not_vendor';
+
+      final vendorData = vendorDoc.data()!;
+      return vendorData['approval_status'] ?? 'pending';
+    } catch (e) {
+      print('Error getting vendor approval status: $e');
+      return 'error';
+    }
+  }
+
+  // Check if user is admin
+  Future<bool> isAdmin() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+
+      final adminDoc = await _firestore
+          .collection('admins')
+          .doc(user.uid)
+          .get();
+
+      return adminDoc.exists && adminDoc.data()?['is_active'] == true;
+    } catch (e) {
+      print('Error checking admin status: $e');
+      return false;
+    }
+  }
+
+  // Reset password for any user (including admin)
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      print('Password reset email sent to: $email');
+    } catch (e) {
+      print('Error sending password reset email: $e');
+      
+      if (e is FirebaseAuthException) {
+        switch (e.code) {
+          case 'user-not-found':
+            throw Exception('No account found with this email address.');
+          case 'invalid-email':
+            throw Exception('Please enter a valid email address.');
+          case 'too-many-requests':
+            throw Exception('Too many password reset attempts. Please try again later.');
+          default:
+            throw Exception('Failed to send password reset email: ${e.message}');
+        }
+      }
+      
+      throw Exception('Failed to send password reset email: $e');
     }
   }
 }
